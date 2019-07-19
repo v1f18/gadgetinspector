@@ -25,6 +25,7 @@ public class MethodDiscovery {
     private final List<MethodReference> discoveredMethods = new ArrayList<>();
 
     public void save() throws IOException {
+        //保存和读取使用Factory实现
         DataLoader.saveData(Paths.get("classes.dat"), new ClassReference.Factory(), discoveredClasses);
         DataLoader.saveData(Paths.get("methods.dat"), new MethodReference.Factory(), discoveredMethods);
 
@@ -32,6 +33,7 @@ public class MethodDiscovery {
         for (ClassReference clazz : discoveredClasses) {
             classMap.put(clazz.getHandle(), clazz);
         }
+        //保存classes.dat和methods.dat的同时，对所有的class进行递归整合，得到集合{class:[subclass]}，class为subclass父类或实现的接口类
         InheritanceDeriver.derive(classMap).save();
     }
 
@@ -40,6 +42,7 @@ public class MethodDiscovery {
             try (InputStream in = classResource.getInputStream()) {
                 ClassReader cr = new ClassReader(in);
                 try {
+                    //使用asm的ClassVisitor、MethodVisitor，利用观察模式去扫描所有的class和method并记录
                     cr.accept(new MethodDiscoveryClassVisitor(), ClassReader.EXPAND_FRAMES);
                 } catch (Exception e) {
                     LOGGER.error("Exception analyzing: " + classResource.getName(), e);

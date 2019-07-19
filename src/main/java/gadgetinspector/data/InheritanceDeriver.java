@@ -20,13 +20,22 @@ public class InheritanceDeriver {
             }
             Set<ClassReference.Handle> allParents = new HashSet<>();
 
+            //获取classReference的所有父类
             getAllParents(classReference, classMap, allParents);
 
             implicitInheritance.put(classReference.getHandle(), allParents);
         }
+        //InheritanceMap翻转集合，转换为{class:[subclass]}
         return new InheritanceMap(implicitInheritance);
     }
 
+    /**
+     * 获取classReference的所有父类
+     *
+     * @param classReference
+     * @param classMap
+     * @param allParents
+     */
     private static void getAllParents(ClassReference classReference, Map<ClassReference.Handle, ClassReference> classMap, Set<ClassReference.Handle> allParents) {
         Set<ClassReference.Handle> parents = new HashSet<>();
         if (classReference.getSuperClass() != null) {

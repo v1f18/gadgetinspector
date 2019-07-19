@@ -16,6 +16,12 @@ public class ClassResourceEnumerator {
         this.classLoader = classLoader;
     }
 
+    /**
+     * java runtime所有的class（rt.jar）和指定的jar或war中的所有class
+     *
+     * @return
+     * @throws IOException
+     */
     public Collection<ClassResource> getAllClasses() throws IOException {
         Collection<ClassResource> result = new ArrayList<>(getRuntimeClasses());
         for (ClassPath.ClassInfo classInfo : ClassPath.from(classLoader).getAllClasses()) {

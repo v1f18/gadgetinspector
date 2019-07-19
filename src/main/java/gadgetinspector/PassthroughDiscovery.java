@@ -17,6 +17,7 @@ public class PassthroughDiscovery {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PassthroughDiscovery.class);
 
+    //{{sourceClass,sourceMethod}:[{targetClass,targetMethod}]}，收集哪个class的method调用了哪一个class的method关系集合
     private final Map<MethodReference.Handle, Set<MethodReference.Handle>> methodCalls = new HashMap<>();
     private Map<MethodReference.Handle, Set<Integer>> passthroughDataflow;
 
@@ -25,12 +26,21 @@ public class PassthroughDiscovery {
         Map<ClassReference.Handle, ClassReference> classMap = DataLoader.loadClasses();
         InheritanceMap inheritanceMap = InheritanceMap.load();
 
+        //搜索方法间的调用关系
         Map<String, ClassResourceEnumerator.ClassResource> classResourceByName = discoverMethodCalls(classResourceEnumerator);
+        //对方法调用关系进行字典排序
         List<MethodReference.Handle> sortedMethods = topologicallySortMethodCalls();
         passthroughDataflow = calculatePassthroughDataflow(classResourceByName, classMap, inheritanceMap, sortedMethods,
                 config.getSerializableDecider(methodMap, inheritanceMap));
     }
 
+    /**
+     * 搜索method关联信息
+     *
+     * @param classResourceEnumerator
+     * @return
+     * @throws IOException
+     */
     private Map<String, ClassResourceEnumerator.ClassResource> discoverMethodCalls(final ClassResourceEnumerator classResourceEnumerator) throws IOException {
         Map<String, ClassResourceEnumerator.ClassResource> classResourcesByName = new HashMap<>();
         for (ClassResourceEnumerator.ClassResource classResource : classResourceEnumerator.getAllClasses()) {
@@ -48,6 +58,11 @@ public class PassthroughDiscovery {
         return classResourcesByName;
     }
 
+    /**
+     * 对收集到的method关联信息，进行method名称的字典排序
+     *
+     * @return
+     */
     private List<MethodReference.Handle> topologicallySortMethodCalls() {
         Map<MethodReference.Handle, Set<MethodReference.Handle>> outgoingReferences = new HashMap<>();
         for (Map.Entry<MethodReference.Handle, Set<MethodReference.Handle>> entry : methodCalls.entrySet()) {
@@ -68,6 +83,17 @@ public class PassthroughDiscovery {
         return sortedMethods;
     }
 
+    /**
+     * 发现方法返回值，也即和入参有关联的返回值，用于分析污染链路
+     *
+     * @param classResourceByName
+     * @param classMap
+     * @param inheritanceMap
+     * @param sortedMethods
+     * @param serializableDecider
+     * @return
+     * @throws IOException
+     */
     private static Map<MethodReference.Handle, Set<Integer>> calculatePassthroughDataflow(Map<String, ClassResourceEnumerator.ClassResource> classResourceByName,
                                                                                           Map<ClassReference.Handle, ClassReference> classMap,
                                                                                           InheritanceMap inheritanceMap,
@@ -75,6 +101,7 @@ public class PassthroughDiscovery {
                                                                                           SerializableDecider serializableDecider) throws IOException {
         final Map<MethodReference.Handle, Set<Integer>> passthroughDataflow = new HashMap<>();
         for (MethodReference.Handle method : sortedMethods) {
+            //跳过初始化方法
             if (method.getName().equals("<clinit>")) {
                 continue;
             }
@@ -121,6 +148,7 @@ public class PassthroughDiscovery {
         public MethodVisitor visitMethod(int access, String name, String desc,
                                          String signature, String[] exceptions) {
             MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+            //在visit每个method的时候，创建MethodVisitor对method进行观察
             MethodCallDiscoveryMethodVisitor modelGeneratorMethodVisitor = new MethodCallDiscoveryMethodVisitor(
                     api, mv, this.name, name, desc);
 
@@ -136,10 +164,19 @@ public class PassthroughDiscovery {
     private class MethodCallDiscoveryMethodVisitor extends MethodVisitor {
         private final Set<MethodReference.Handle> calledMethods;
 
+        /**
+         *
+         * @param api
+         * @param mv
+         * @param owner 上一步ClassVisitor在visitMethod时，传入的当前class
+         * @param name
+         * @param desc
+         */
         public MethodCallDiscoveryMethodVisitor(final int api, final MethodVisitor mv,
                                            final String owner, String name, String desc) {
             super(api, mv);
 
+            //创建calledMethod收集调用到的method，最后形成集合{{sourceClass,sourceMethod}:[{targetClass,targetMethod}]}
             this.calledMethods = new HashSet<>();
             methodCalls.put(new MethodReference.Handle(new ClassReference.Handle(owner), name, desc), calledMethods);
         }
@@ -256,6 +293,7 @@ public class PassthroughDiscovery {
                           String superName, String[] interfaces) {
             super.visit(version, access, name, signature, superName, interfaces);
             this.name = name;
+            //不是目标观察的class跳过
             if (!this.name.equals(methodToVisit.getClassReference().getName())) {
                 throw new IllegalStateException("Expecting to visit " + methodToVisit.getClassReference().getName() + " but instead got " + this.name);
             }
@@ -264,6 +302,7 @@ public class PassthroughDiscovery {
         @Override
         public MethodVisitor visitMethod(int access, String name, String desc,
                                          String signature, String[] exceptions) {
+            //不是目标观察的method需要跳过，上一步得到的method都是有调用关系的method才需要数据流分析
             if (!name.equals(methodToVisit.getName()) || !desc.equals(methodToVisit.getDesc())) {
                 return null;
             }
@@ -271,6 +310,7 @@ public class PassthroughDiscovery {
                 throw new IllegalStateException("Constructing passthroughDataflowMethodVisitor twice!");
             }
 
+            //对method进行观察
             MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
             passthroughDataflowMethodVisitor = new PassthroughDataflowMethodVisitor(
                     classMap, inheritanceMap, this.passthroughDataflow, serializableDecider,
@@ -319,11 +359,13 @@ public class PassthroughDiscovery {
             int localIndex = 0;
             int argIndex = 0;
             if ((this.access & Opcodes.ACC_STATIC) == 0) {
+                //非静态方法，第一个局部变量应该为对象实例this
                 setLocalTaint(localIndex, argIndex);
                 localIndex += 1;
                 argIndex += 1;
             }
             for (Type argType : Type.getArgumentTypes(desc)) {
+                //判断类型，得出变量占用空间大小，然后存储
                 setLocalTaint(localIndex, argIndex);
                 localIndex += argType.getSize();
                 argIndex += 1;
@@ -333,16 +375,16 @@ public class PassthroughDiscovery {
         @Override
         public void visitInsn(int opcode) {
             switch(opcode) {
-                case Opcodes.IRETURN:
-                case Opcodes.FRETURN:
-                case Opcodes.ARETURN:
-                    returnTaint.addAll(getStackTaint(0));
+                case Opcodes.IRETURN://从当前方法返回int
+                case Opcodes.FRETURN://从当前方法返回float
+                case Opcodes.ARETURN://从当前方法返回对象引用
+                    returnTaint.addAll(getStackTaint(0));//栈空间从内存高位到低位分配空间
                     break;
-                case Opcodes.LRETURN:
-                case Opcodes.DRETURN:
+                case Opcodes.LRETURN://从当前方法返回long
+                case Opcodes.DRETURN://从当前方法返回double
                     returnTaint.addAll(getStackTaint(1));
                     break;
-                case Opcodes.RETURN:
+                case Opcodes.RETURN://从当前方法返回void
                     break;
                 default:
                     break;
@@ -360,16 +402,20 @@ public class PassthroughDiscovery {
                 case Opcodes.PUTSTATIC:
                     break;
                 case Opcodes.GETFIELD:
-                    Type type = Type.getType(desc);
+                    Type type = Type.getType(desc);//获取字段类型
                     if (type.getSize() == 1) {
+                        //size=1可能为引用类型
                         Boolean isTransient = null;
 
                         // If a field type could not possibly be serialized, it's effectively transient
+                        //判断字段是否可序列化
                         if (!couldBeSerialized(serializableDecider, inheritanceMap, new ClassReference.Handle(type.getInternalName()))) {
                             isTransient = Boolean.TRUE;
                         } else {
+                            //再次对字段进行判断
                             ClassReference clazz = classMap.get(new ClassReference.Handle(owner));
                             while (clazz != null) {
+                                //遍历字段，判断是否是transient类型，以确定是否可被序列化
                                 for (ClassReference.Member member : clazz.getMembers()) {
                                     if (member.getName().equals(name)) {
                                         isTransient = (member.getModifiers() & Opcodes.ACC_TRANSIENT) != 0;
@@ -385,6 +431,7 @@ public class PassthroughDiscovery {
 
                         Set<Integer> taint;
                         if (!Boolean.TRUE.equals(isTransient)) {
+                            //若不是Transient字段，则从栈顶取出它
                             taint = getStackTaint(0);
                         } else {
                             taint = new HashSet<>();
@@ -406,21 +453,24 @@ public class PassthroughDiscovery {
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+            //获取method参数类型
             Type[] argTypes = Type.getArgumentTypes(desc);
             if (opcode != Opcodes.INVOKESTATIC) {
+                //如果执行的非静态方法，则把数组第一个元素类型设置为该实例对象的类型，类比局部变量表
                 Type[] extendedArgTypes = new Type[argTypes.length+1];
                 System.arraycopy(argTypes, 0, extendedArgTypes, 1, argTypes.length);
                 extendedArgTypes[0] = Type.getObjectType(owner);
                 argTypes = extendedArgTypes;
             }
+            //获取返回值类型大小
             int retSize = Type.getReturnType(desc).getSize();
 
             Set<Integer> resultTaint;
             switch (opcode) {
-                case Opcodes.INVOKESTATIC:
-                case Opcodes.INVOKEVIRTUAL:
-                case Opcodes.INVOKESPECIAL:
-                case Opcodes.INVOKEINTERFACE:
+                case Opcodes.INVOKESTATIC://调用静态方法
+                case Opcodes.INVOKEVIRTUAL://调用实例方法
+                case Opcodes.INVOKESPECIAL://调用超类构造方法，实例初始化方法，私有方法
+                case Opcodes.INVOKEINTERFACE://调用接口方法
                     final List<Set<Integer>> argTaint = new ArrayList<Set<Integer>>(argTypes.length);
                     for (int i = 0; i < argTypes.length; i++) {
                         argTaint.add(null);
@@ -430,6 +480,7 @@ public class PassthroughDiscovery {
                     for (int i = 0; i < argTypes.length; i++) {
                         Type argType = argTypes[i];
                         if (argType.getSize() > 0) {
+                            //根据参数类型大小，从栈底获取入参
                             argTaint.set(argTypes.length - 1 - i, getStackTaint(stackIndex + argType.getSize() - 1));
                         }
                         stackIndex += argType.getSize();
@@ -445,6 +496,7 @@ public class PassthroughDiscovery {
                     Set<Integer> passthrough = passthroughDataflow.get(new MethodReference.Handle(new ClassReference.Handle(owner), name, desc));
                     if (passthrough != null) {
                         for (Integer passthroughDataflowArg : passthrough) {
+                            //判断是否和同一方法体内的其它方法返回值关联，有关联则添加到栈底，等待执行return时保存
                             resultTaint.addAll(argTaint.get(passthroughDataflowArg));
                         }
                     }
@@ -463,7 +515,7 @@ public class PassthroughDiscovery {
 
 
     public static void main(String[] args) throws Exception {
-        ClassLoader classLoader = Util.getWarClassLoader(Paths.get(args[0]));
+        ClassLoader classLoader = Util.getJarClassLoader(Paths.get(args[0]));
 
         PassthroughDiscovery passthroughDiscovery = new PassthroughDiscovery();
         passthroughDiscovery.discover(new ClassResourceEnumerator(classLoader), new JavaDeserializationConfig());

@@ -138,6 +138,7 @@ public class CallGraphDiscovery {
 
             int localIndex = 0;
             int argIndex = 0;
+            //使用arg前缀来表示方法入参，后续用于判断是否为目标调用方法的入参
             if ((this.access & Opcodes.ACC_STATIC) == 0) {
                 setLocalTaint(localIndex, "arg" + argIndex);
                 localIndex += 1;
@@ -158,7 +159,7 @@ public class CallGraphDiscovery {
                     break;
                 case Opcodes.PUTSTATIC:
                     break;
-                case Opcodes.GETFIELD:
+                case Opcodes.GETFIELD://入操作栈
                     Type type = Type.getType(desc);
                     if (type.getSize() == 1) {
                         Boolean isTransient = null;
@@ -189,6 +190,7 @@ public class CallGraphDiscovery {
                             }
                         }
                         super.visitFieldInsn(opcode, owner, name, desc);
+                        //在调用方法前，都会先入栈，作为参数
                         setStackTaint(0, newTaint);
                         return;
                     }
@@ -204,6 +206,7 @@ public class CallGraphDiscovery {
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+            //获取被调用method的参数和类型，非静态方法需要把实例类型放在第一个元素
             Type[] argTypes = Type.getArgumentTypes(desc);
             if (opcode != Opcodes.INVOKESTATIC) {
                 Type[] extendedArgTypes = new Type[argTypes.length+1];
@@ -219,11 +222,14 @@ public class CallGraphDiscovery {
                 case Opcodes.INVOKEINTERFACE:
                     int stackIndex = 0;
                     for (int i = 0; i < argTypes.length; i++) {
+                        //最后的参数，就是最后入栈，即在栈顶
                         int argIndex = argTypes.length-1-i;
                         Type type = argTypes[argIndex];
+                        //操作数栈出栈，调用方法前，参数都已入栈
                         Set<String> taint = getStackTaint(stackIndex);
                         if (taint.size() > 0) {
                             for (String argSrc : taint) {
+                                //取出出栈的参数，判断是否为当前方法的入参，arg前缀
                                 if (!argSrc.substring(0, 3).equals("arg")) {
                                     throw new IllegalStateException("Invalid taint arg: " + argSrc);
                                 }
@@ -237,7 +243,7 @@ public class CallGraphDiscovery {
                                     srcArgIndex = Integer.parseInt(argSrc.substring(3, dotIndex));
                                     srcArgPath = argSrc.substring(dotIndex+1);
                                 }
-
+                                //记录参数流动关系
                                 discoveredCalls.add(new GraphCall(
                                         new MethodReference.Handle(new ClassReference.Handle(this.owner), this.name, this.desc),
                                         new MethodReference.Handle(new ClassReference.Handle(owner), name, desc),

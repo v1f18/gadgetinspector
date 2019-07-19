@@ -15,6 +15,12 @@ public class SimpleSerializableDecider implements SerializableDecider {
         this.inheritanceMap = inheritanceMap;
     }
 
+    /**
+     * 用于判断class是否可以被序列化
+     *
+     * @param handle
+     * @return
+     */
     @Override
     public Boolean apply(ClassReference.Handle handle) {
         Boolean cached = cache.get(handle);
@@ -34,6 +40,7 @@ public class SimpleSerializableDecider implements SerializableDecider {
             return false;
         }
 
+        //判断是否有直接或间接实现java/io/Serializable序列化接口
         if (inheritanceMap.isSubclassOf(handle, new ClassReference.Handle("java/io/Serializable"))) {
             return true;
         }
@@ -41,6 +48,12 @@ public class SimpleSerializableDecider implements SerializableDecider {
         return false;
     }
 
+    /**
+     * 判断class是否在黑名单内
+     *
+     * @param clazz
+     * @return
+     */
     private static boolean isBlacklistedClass(ClassReference.Handle clazz) {
         if (clazz.getName().startsWith("com/google/common/collect/")) {
             return true;
