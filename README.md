@@ -1,3 +1,9 @@
+PS：
+================
+加入了Fastjson的gadget chain挖掘
+
+使用方式，main方法启动，启动参数：--config fastjson /xxxxx/xxxxx/xxxxx/xxxxx.jar /xxxxx/xxxxx/xxxxx/xxxxx2.jar /xxxxx/xxxxx/xxxxx/xxxxx3.jar
+
 Gadget Inspector
 ================
 
