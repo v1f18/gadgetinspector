@@ -305,6 +305,11 @@ public class GadgetChainDiscovery {
             return true;
         }
 
+        if (inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("javax/naming/Context"))
+                && method.getName().equals("lookup")) {
+            return true;
+        }
+
         return false;
     }
 

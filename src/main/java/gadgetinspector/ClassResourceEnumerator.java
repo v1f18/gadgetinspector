@@ -34,6 +34,7 @@ public class ClassResourceEnumerator {
         // A hacky way to get the current JRE's rt.jar. Depending on the class loader, rt.jar may be in the
         // bootstrap classloader so all the JDK classes will be excluded from classpath scanning with this!
         // However, this only works up to Java 8, since after that Java uses some crazy module magic.
+        //加载rt.jar的所有class
         URL stringClassUrl = Object.class.getResource("String.class");
         URLConnection connection = stringClassUrl.openConnection();
         Collection<ClassResource> result = new ArrayList<>();

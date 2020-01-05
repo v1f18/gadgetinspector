@@ -32,6 +32,7 @@ public class GadgetInspector {
             System.exit(1);
         }
 
+        //配置log4j用于输出日志
         configureLogging();
 
         boolean resume = false;
@@ -45,7 +46,7 @@ public class GadgetInspector {
                 break;
             }
             if (arg.equals("--resume")) {
-                //是否不删除dat文件
+                //不删除dat文件
                 resume = true;
             } else if (arg.equals("--config")) {
                 //--config参数指定fuzz类型
@@ -61,10 +62,12 @@ public class GadgetInspector {
         }
 
         final ClassLoader classLoader;
+        //程序参数的最后一部分，即最后一个具有前缀--的参数（例：--resume）后
         if (args.length == argIndex+1 && args[argIndex].toLowerCase().endsWith(".war")) {
             //加载war文件
             Path path = Paths.get(args[argIndex]);
             LOGGER.info("Using WAR classpath: " + path);
+            //实现为URLClassLoader，加载war包下的WEB-INF/lib和WEB-INF/classes
             classLoader = Util.getWarClassLoader(path);
         } else {
             //加载jar文件，java命令后部，可配置多个
@@ -77,10 +80,15 @@ public class GadgetInspector {
                 jarPaths[i] = path;
             }
             LOGGER.info("Using classpath: " + Arrays.toString(jarPaths));
+            //实现为URLClassLoader，加载所有指定的jar
             classLoader = Util.getJarClassLoader(jarPaths);
         }
+        //类枚举加载器，具有两个方法
+        //getRuntimeClasses获取rt.jar的所有class
+        //getAllClasses获取rt.jar以及classLoader加载的class
         final ClassResourceEnumerator classResourceEnumerator = new ClassResourceEnumerator(classLoader);
 
+        //删除所有的dat文件
         if (!resume) {
             // Delete all existing dat files
             LOGGER.info("Deleting stale data...");
@@ -94,13 +102,14 @@ public class GadgetInspector {
         }
 
         //扫描java runtime所有的class（rt.jar）和指定的jar或war中的所有class
+
         // Perform the various discovery steps
         if (!Files.exists(Paths.get("classes.dat")) || !Files.exists(Paths.get("methods.dat"))
                 || !Files.exists(Paths.get("inheritanceMap.dat"))) {
             LOGGER.info("Running method discovery...");
             MethodDiscovery methodDiscovery = new MethodDiscovery();
             methodDiscovery.discover(classResourceEnumerator);
-            //save的时候，统计整理了class关系，{class:[subclass]}
+            //保存了类信息、方法信息、继承实现信息
             methodDiscovery.save();
         }
 

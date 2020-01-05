@@ -24,6 +24,7 @@ public class Util {
     private static final Logger LOGGER = LoggerFactory.getLogger(Util.class);
 
     public static ClassLoader getWarClassLoader(Path warPath) throws IOException {
+        //创建临时文件夹，在jvm shutdown自动删除
         final Path tmpDir = Files.createTempDirectory("exploded-war");
         // Delete the temp directory at shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

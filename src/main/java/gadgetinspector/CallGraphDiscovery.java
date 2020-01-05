@@ -21,9 +21,13 @@ public class CallGraphDiscovery {
     private final Set<GraphCall> discoveredCalls = new HashSet<>();
 
     public void discover(final ClassResourceEnumerator classResourceEnumerator, GIConfig config) throws IOException {
+        //加载所有方法信息
         Map<MethodReference.Handle, MethodReference> methodMap = DataLoader.loadMethods();
+        //加载所有类信息
         Map<ClassReference.Handle, ClassReference> classMap = DataLoader.loadClasses();
+        //加载所有父子类、超类、实现类关系
         InheritanceMap inheritanceMap = InheritanceMap.load();
+        //加载所有方法参数和返回值的污染关联
         Map<MethodReference.Handle, Set<Integer>> passthroughDataflow = PassthroughDiscovery.load();
 
         SerializableDecider serializableDecider = config.getSerializableDecider(methodMap, inheritanceMap);
@@ -222,7 +226,7 @@ public class CallGraphDiscovery {
                 case Opcodes.INVOKEINTERFACE:
                     int stackIndex = 0;
                     for (int i = 0; i < argTypes.length; i++) {
-                        //最后的参数，就是最后入栈，即在栈顶
+                        //最右边的参数，就是最后入栈，即在栈顶
                         int argIndex = argTypes.length-1-i;
                         Type type = argTypes[argIndex];
                         //操作数栈出栈，调用方法前，参数都已入栈
@@ -244,6 +248,7 @@ public class CallGraphDiscovery {
                                     srcArgPath = argSrc.substring(dotIndex+1);
                                 }
                                 //记录参数流动关系
+                                //argIndex：当前方法参数索引，srcArgIndex：对应上一级方法的参数索引
                                 discoveredCalls.add(new GraphCall(
                                         new MethodReference.Handle(new ClassReference.Handle(this.owner), this.name, this.desc),
                                         new MethodReference.Handle(new ClassReference.Handle(owner), name, desc),

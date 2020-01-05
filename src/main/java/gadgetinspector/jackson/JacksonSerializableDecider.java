@@ -10,7 +10,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class JacksonSerializableDecider implements SerializableDecider {
+    //类是否通过决策的缓存集合
     private final Map<ClassReference.Handle, Boolean> cache = new HashMap<>();
+    //类名-方法集合 映射集合
     private final Map<ClassReference.Handle, Set<MethodReference.Handle>> methodsByClassMap;
 
     public JacksonSerializableDecider(Map<MethodReference.Handle, MethodReference> methodMap) {
@@ -35,6 +37,7 @@ public class JacksonSerializableDecider implements SerializableDecider {
         Set<MethodReference.Handle> classMethods = methodsByClassMap.get(handle);
         if (classMethods != null) {
             for (MethodReference.Handle method : classMethods) {
+                //该类，只要有无参构造方法，就通过决策
                 if (method.getName().equals("<init>") && method.getDesc().equals("()V")) {
                     cache.put(handle, Boolean.TRUE);
                     return Boolean.TRUE;

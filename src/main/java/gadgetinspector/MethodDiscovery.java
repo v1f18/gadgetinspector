@@ -26,14 +26,22 @@ public class MethodDiscovery {
 
     public void save() throws IOException {
         //保存和读取使用Factory实现
+
+        //classes.dat数据格式：
+        //类名(例：java/lang/String) 父类 接口A,接口B,接口C 是否接口 字段1!字段1access!字段1类型!字段2!字段2access!字段1类型
         DataLoader.saveData(Paths.get("classes.dat"), new ClassReference.Factory(), discoveredClasses);
+
+        //methods.dat数据格式：
+        //类名 方法名 方法描述 是否静态方法
         DataLoader.saveData(Paths.get("methods.dat"), new MethodReference.Factory(), discoveredMethods);
 
+        //形成 类名(ClassReference.Handle)->类(ClassReference) 的映射关系
         Map<ClassReference.Handle, ClassReference> classMap = new HashMap<>();
         for (ClassReference clazz : discoveredClasses) {
             classMap.put(clazz.getHandle(), clazz);
         }
-        //保存classes.dat和methods.dat的同时，对所有的class进行递归整合，得到集合{class:[subclass]}，class为subclass父类或实现的接口类
+        //保存classes.dat和methods.dat的同时，对所有的class进行递归整合，得到集合{class:[subclass]}，
+        // class为subclass父类、超类或实现的接口类，保存至inheritanceMap.dat
         InheritanceDeriver.derive(classMap).save();
     }
 
@@ -57,7 +65,7 @@ public class MethodDiscovery {
         private String superName;
         private String[] interfaces;
         boolean isInterface;
-        private List<ClassReference.Member> members;
+        private List<ClassReference.Member> members;//类的所有字段
         private ClassReference.Handle classHandle;
 
         private MethodDiscoveryClassVisitor() throws SQLException {
@@ -72,7 +80,7 @@ public class MethodDiscovery {
             this.interfaces = interfaces;
             this.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
             this.members = new ArrayList<>();
-            this.classHandle = new ClassReference.Handle(name);
+            this.classHandle = new ClassReference.Handle(name);//类名
 
             super.visit(version, access, name, signature, superName, interfaces);
         }
@@ -95,8 +103,9 @@ public class MethodDiscovery {
         @Override
         public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
             boolean isStatic = (access & Opcodes.ACC_STATIC) != 0;
+            //找到一个方法，添加到缓存
             discoveredMethods.add(new MethodReference(
-                    classHandle,
+                    classHandle,//类名
                     name,
                     desc,
                     isStatic));
@@ -110,7 +119,8 @@ public class MethodDiscovery {
                     superName,
                     interfaces,
                     isInterface,
-                    members.toArray(new ClassReference.Member[members.size()]));
+                    members.toArray(new ClassReference.Member[members.size()]));//把所有找到的字段封装
+            //找到一个方法遍历完成后，添加类到缓存
             discoveredClasses.add(classReference);
 
             super.visitEnd();

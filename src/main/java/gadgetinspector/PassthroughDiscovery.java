@@ -22,20 +22,30 @@ public class PassthroughDiscovery {
     private Map<MethodReference.Handle, Set<Integer>> passthroughDataflow;
 
     public void discover(final ClassResourceEnumerator classResourceEnumerator, final GIConfig config) throws IOException {
+        //加载文件记录的所有方法信息
         Map<MethodReference.Handle, MethodReference> methodMap = DataLoader.loadMethods();
+        //加载文件记录的所有类信息
         Map<ClassReference.Handle, ClassReference> classMap = DataLoader.loadClasses();
+        //加载文件记录的所有类继承、实现关联信息
         InheritanceMap inheritanceMap = InheritanceMap.load();
 
-        //搜索方法间的调用关系
+        //搜索方法间的调用关系，缓存至methodCalls集合，返回 类名->类资源 映射集合
         Map<String, ClassResourceEnumerator.ClassResource> classResourceByName = discoverMethodCalls(classResourceEnumerator);
         //对方法调用关系进行字典排序
         List<MethodReference.Handle> sortedMethods = topologicallySortMethodCalls();
+        /**
+         * classResourceByName：类资源集合
+         * classMap：类信息集合
+         * inheritanceMap：继承、实现关系集合
+         * sortedMethods：方法集合
+         * SerializableDecider：决策者
+         */
         passthroughDataflow = calculatePassthroughDataflow(classResourceByName, classMap, inheritanceMap, sortedMethods,
                 config.getSerializableDecider(methodMap, inheritanceMap));
     }
 
     /**
-     * 搜索method关联信息
+     * 搜索method调用关联信息
      *
      * @param classResourceEnumerator
      * @return
@@ -76,6 +86,8 @@ public class PassthroughDiscovery {
         Set<MethodReference.Handle> visitedNodes = new HashSet<>();
         List<MethodReference.Handle> sortedMethods = new ArrayList<>(outgoingReferences.size());
         for (MethodReference.Handle root : outgoingReferences.keySet()) {
+            //遍历集合中的起始方法，进行递归搜索DFS，通过逆拓扑排序，调用链的最末端排在最前面，
+            // 这样才能实现入参、返回值、函数调用链之间的污点影响
             dfsTsort(outgoingReferences, sortedMethods, visitedNodes, dfsStack, root);
         }
         LOGGER.debug(String.format("Outgoing references %d, sortedMethods %d", outgoingReferences.size(), sortedMethods.size()));
@@ -86,11 +98,11 @@ public class PassthroughDiscovery {
     /**
      * 发现方法返回值，也即和入参有关联的返回值，用于分析污染链路
      *
-     * @param classResourceByName
-     * @param classMap
-     * @param inheritanceMap
-     * @param sortedMethods
-     * @param serializableDecider
+     * @param classResourceByName 类资源集合
+     * @param classMap            类信息集合
+     * @param inheritanceMap      继承、实现关系集合
+     * @param sortedMethods       方法集合
+     * @param serializableDecider 决策者
      * @return
      * @throws IOException
      */
@@ -100,11 +112,13 @@ public class PassthroughDiscovery {
                                                                                           List<MethodReference.Handle> sortedMethods,
                                                                                           SerializableDecider serializableDecider) throws IOException {
         final Map<MethodReference.Handle, Set<Integer>> passthroughDataflow = new HashMap<>();
+        //遍历所有方法，然后asm观察所属类，经过前面DFS的排序，调用链最末端的方法在最前面
         for (MethodReference.Handle method : sortedMethods) {
-            //跳过初始化方法
+            //跳过static静态初始化代码
             if (method.getName().equals("<clinit>")) {
                 continue;
             }
+            //获取所属类进行观察
             ClassResourceEnumerator.ClassResource classResource = classResourceByName.get(method.getClassReference().getName());
             try (InputStream inputStream = classResource.getInputStream()) {
                 ClassReader cr = new ClassReader(inputStream);
@@ -112,7 +126,7 @@ public class PassthroughDiscovery {
                     PassthroughDataflowClassVisitor cv = new PassthroughDataflowClassVisitor(classMap, inheritanceMap,
                             passthroughDataflow, serializableDecider, Opcodes.ASM6, method);
                     cr.accept(cv, ClassReader.EXPAND_FRAMES);
-                    passthroughDataflow.put(method, cv.getReturnTaint());
+                    passthroughDataflow.put(method, cv.getReturnTaint());//缓存方法返回值与哪个参数有关系
                 } catch (Exception e) {
                     LOGGER.error("Exception analyzing " + method.getClassReference().getName(), e);
                 }
@@ -169,8 +183,8 @@ public class PassthroughDiscovery {
          * @param api
          * @param mv
          * @param owner 上一步ClassVisitor在visitMethod时，传入的当前class
-         * @param name
-         * @param desc
+         * @param name visit的方法名
+         * @param desc visit的方法描述
          */
         public MethodCallDiscoveryMethodVisitor(final int api, final MethodVisitor mv,
                                            final String owner, String name, String desc) {
@@ -181,6 +195,15 @@ public class PassthroughDiscovery {
             methodCalls.put(new MethodReference.Handle(new ClassReference.Handle(owner), name, desc), calledMethods);
         }
 
+        /**
+         * 方法内，每一个方法调用都会执行该方法
+         *
+         * @param opcode 调用操作码：INVOKEVIRTUAL, INVOKESPECIAL, INVOKESTATIC or INVOKEINTERFACE.
+         * @param owner 被调用的类名
+         * @param name 被调用的方法
+         * @param desc 被调用方法的描述
+         * @param itf 被调用的类是否接口
+         */
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
             calledMethods.add(new MethodReference.Handle(new ClassReference.Handle(owner), name, desc));
@@ -252,27 +275,29 @@ public class PassthroughDiscovery {
         if (visitedNodes.contains(node)) {
             return;
         }
+        //根据起始方法，取出被调用的方法集
         Set<MethodReference.Handle> outgoingRefs = outgoingReferences.get(node);
         if (outgoingRefs == null) {
             return;
         }
 
+        //入栈，以便于递归不造成类似循环引用的死循环整合
         stack.add(node);
         for (MethodReference.Handle child : outgoingRefs) {
             dfsTsort(outgoingReferences, sortedMethods, visitedNodes, stack, child);
         }
         stack.remove(node);
-        visitedNodes.add(node);
-        sortedMethods.add(node);
+        visitedNodes.add(node);//记录已被探索过的方法，用于在上层调用遇到重复方法时可以跳过
+        sortedMethods.add(node);//递归完成的探索，会添加进来
     }
 
     private static class PassthroughDataflowClassVisitor extends ClassVisitor {
 
-        Map<ClassReference.Handle, ClassReference> classMap;
-        private final MethodReference.Handle methodToVisit;
-        private final InheritanceMap inheritanceMap;
+        Map<ClassReference.Handle, ClassReference> classMap;//类信息集合
+        private final MethodReference.Handle methodToVisit;//要观察的方法
+        private final InheritanceMap inheritanceMap;//继承、实现关系集合
         private final Map<MethodReference.Handle, Set<Integer>> passthroughDataflow;
-        private final SerializableDecider serializableDecider;
+        private final SerializableDecider serializableDecider;//决策者
 
         private String name;
         private PassthroughDataflowMethodVisitor passthroughDataflowMethodVisitor;
@@ -329,14 +354,14 @@ public class PassthroughDiscovery {
 
     private static class PassthroughDataflowMethodVisitor extends TaintTrackingMethodVisitor<Integer> {
 
-        private final Map<ClassReference.Handle, ClassReference> classMap;
-        private final InheritanceMap inheritanceMap;
+        private final Map<ClassReference.Handle, ClassReference> classMap;//类信息集合
+        private final InheritanceMap inheritanceMap;//继承、实现关系集合
         private final Map<MethodReference.Handle, Set<Integer>> passthroughDataflow;
-        private final SerializableDecider serializableDecider;
+        private final SerializableDecider serializableDecider;//决策者
 
         private final int access;
         private final String desc;
-        private final Set<Integer> returnTaint;
+        private final Set<Integer> returnTaint;//被污染的返回数据
 
         public PassthroughDataflowMethodVisitor(Map<ClassReference.Handle, ClassReference> classMap,
                 InheritanceMap inheritanceMap, Map<MethodReference.Handle,
@@ -360,12 +385,13 @@ public class PassthroughDiscovery {
             int argIndex = 0;
             if ((this.access & Opcodes.ACC_STATIC) == 0) {
                 //非静态方法，第一个局部变量应该为对象实例this
+                //添加到本地变量表集合
                 setLocalTaint(localIndex, argIndex);
                 localIndex += 1;
                 argIndex += 1;
             }
             for (Type argType : Type.getArgumentTypes(desc)) {
-                //判断类型，得出变量占用空间大小，然后存储
+                //判断参数类型，得出变量占用空间大小，然后存储
                 setLocalTaint(localIndex, argIndex);
                 localIndex += argType.getSize();
                 argIndex += 1;
@@ -408,11 +434,11 @@ public class PassthroughDiscovery {
                         Boolean isTransient = null;
 
                         // If a field type could not possibly be serialized, it's effectively transient
-                        //判断字段是否可序列化
+                        //判断调用的字段类型是否可序列化
                         if (!couldBeSerialized(serializableDecider, inheritanceMap, new ClassReference.Handle(type.getInternalName()))) {
                             isTransient = Boolean.TRUE;
                         } else {
-                            //再次对字段进行判断
+                            //若调用的字段可被序列化，则取当前类实例的所有字段，找出调用的字段，去判断是否被标识了transient
                             ClassReference clazz = classMap.get(new ClassReference.Handle(owner));
                             while (clazz != null) {
                                 //遍历字段，判断是否是transient类型，以确定是否可被序列化
@@ -425,13 +451,14 @@ public class PassthroughDiscovery {
                                 if (isTransient != null) {
                                     break;
                                 }
+                                //若找不到字段，则向上父类查找，继续遍历
                                 clazz = classMap.get(new ClassReference.Handle(clazz.getSuperClass()));
                             }
                         }
 
                         Set<Integer> taint;
                         if (!Boolean.TRUE.equals(isTransient)) {
-                            //若不是Transient字段，则从栈顶取出它
+                            //若不是Transient字段，则从栈顶取出它，取出的是this或某实例变量，即字段所属实例
                             taint = getStackTaint(0);
                         } else {
                             taint = new HashSet<>();
@@ -471,6 +498,7 @@ public class PassthroughDiscovery {
                 case Opcodes.INVOKEVIRTUAL://调用实例方法
                 case Opcodes.INVOKESPECIAL://调用超类构造方法，实例初始化方法，私有方法
                 case Opcodes.INVOKEINTERFACE://调用接口方法
+                    //todo 1 构造污染参数集合，方法调用前先把操作数入栈
                     final List<Set<Integer>> argTaint = new ArrayList<Set<Integer>>(argTypes.length);
                     for (int i = 0; i < argTypes.length; i++) {
                         argTaint.add(null);
@@ -480,12 +508,13 @@ public class PassthroughDiscovery {
                     for (int i = 0; i < argTypes.length; i++) {
                         Type argType = argTypes[i];
                         if (argType.getSize() > 0) {
-                            //根据参数类型大小，从栈底获取入参
+                            //根据参数类型大小，从栈底获取入参，参数入栈是从右到左的
                             argTaint.set(argTypes.length - 1 - i, getStackTaint(stackIndex + argType.getSize() - 1));
                         }
                         stackIndex += argType.getSize();
                     }
 
+                    //todo 2 构造方法的调用，意味参数0可以污染返回值
                     if (name.equals("<init>")) {
                         // Pass result taint through to original taint set; the initialized object is directly tainted by
                         // parameters
@@ -493,6 +522,8 @@ public class PassthroughDiscovery {
                     } else {
                         resultTaint = new HashSet<>();
                     }
+
+                    //todo 3 前面已做逆拓扑，调用链最末端最先被visit，因此，调用到的方法必然已被visit分析过
                     Set<Integer> passthrough = passthroughDataflow.get(new MethodReference.Handle(new ClassReference.Handle(owner), name, desc));
                     if (passthrough != null) {
                         for (Integer passthroughDataflowArg : passthrough) {

@@ -635,6 +635,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
             case Opcodes.INVOKEVIRTUAL:
             case Opcodes.INVOKESPECIAL:
             case Opcodes.INVOKEINTERFACE:
+                //todo 1 构造污染参数集合，方法调用前先把操作数入栈
                 final List<Set<T>> argTaint = new ArrayList<Set<T>>(argTypes.length);
                 for (int i = 0; i < argTypes.length; i++) {
                     argTaint.add(null);
@@ -650,6 +651,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                     }
                 }
 
+                //todo 2 构造方法的调用，意味参数0可以污染返回值
                 Set<T> resultTaint;
                 if (name.equals("<init>")) {
                     //如果被调用的方法是构造方法，则直接通过对象污染
@@ -666,7 +668,8 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                     savedVariableState.localVars.get(0).addAll(argTaint.get(0));
                 }
 
-                //例外
+                //todo 3 在名单内的方法的调用，已预置哪个参数可以污染返回值
+                //例外，污染白名单，固定哪个参数可以污染下去
                 for (Object[] passthrough : PASSTHROUGH_DATAFLOW) {
                     if (passthrough[0].equals(owner) && passthrough[1].equals(name) && passthrough[2].equals(desc)) {
                         for (int i = 3; i < passthrough.length; i++) {
@@ -675,6 +678,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                     }
                 }
 
+                //todo 4 前面已做逆拓扑，调用链最末端最先被visit，因此，调用到的方法必然已被visit分析过
                 //通过PassthroughDiscovery发现的参数和返回值污染
                 if (passthroughDataflow != null) {
                     Set<Integer> passthroughArgs = passthroughDataflow.get(methodHandle);
@@ -704,7 +708,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                 }
 
                 if (retSize > 0) {
-                    push(resultTaint);
+                    push(resultTaint);//污染结果入栈
                     for (int i = 1; i < retSize; i++) {
                         push();
                     }

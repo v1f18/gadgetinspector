@@ -41,6 +41,11 @@ public class DataLoader {
         }
     }
 
+    /**
+     * 从classes.dat加载类信息
+     *
+     * @return
+     */
     public static Map<ClassReference.Handle, ClassReference> loadClasses() {
         try {
             Map<ClassReference.Handle, ClassReference> classMap = new HashMap<>();
@@ -53,6 +58,11 @@ public class DataLoader {
         }
     }
 
+    /**
+     * 从methods.dat加载所有方法信息
+     *
+     * @return
+     */
     public static Map<MethodReference.Handle, MethodReference> loadMethods() {
         try {
             Map<MethodReference.Handle, MethodReference> methodMap = new HashMap<>();

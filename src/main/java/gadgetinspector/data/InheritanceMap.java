@@ -5,7 +5,9 @@ import java.nio.file.Paths;
 import java.util.*;
 
 public class InheritanceMap {
+    //子-父关系集合
     private final Map<ClassReference.Handle, Set<ClassReference.Handle>> inheritanceMap;
+    //父-子关系集合
     private final Map<ClassReference.Handle, Set<ClassReference.Handle>> subClassMap;
 
     public InheritanceMap(Map<ClassReference.Handle, Set<ClassReference.Handle>> inheritanceMap) {
@@ -48,6 +50,8 @@ public class InheritanceMap {
     }
 
     public void save() throws IOException {
+        //inheritanceMap.dat数据格式：
+        //类名 父类或超类或接口类1 父类或超类或接口类2 父类或超类或接口类3 ...
         DataLoader.saveData(Paths.get("inheritanceMap.dat"), new InheritanceMapFactory(), inheritanceMap.entrySet());
     }
 

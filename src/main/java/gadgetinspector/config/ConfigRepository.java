@@ -8,7 +8,8 @@ public class ConfigRepository {
     private static final List<GIConfig> ALL_CONFIGS = Collections.unmodifiableList(Arrays.asList(
             new JavaDeserializationConfig(),
             new JacksonDeserializationConfig(),
-            new XstreamDeserializationConfig()));
+            new XstreamDeserializationConfig(),
+            new FastjsonDeserializationConfig()));
 
     public static GIConfig getConfig(String name) {
         for (GIConfig config : ALL_CONFIGS) {
