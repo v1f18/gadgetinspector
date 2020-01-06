@@ -3,6 +3,7 @@ package gadgetinspector;
 import gadgetinspector.config.GIConfig;
 import gadgetinspector.config.JavaDeserializationConfig;
 import gadgetinspector.data.*;
+import java.rmi.registry.Registry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -305,7 +306,8 @@ public class GadgetChainDiscovery {
             return true;
         }
 
-        if (inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("javax/naming/Context"))
+        if ((inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("java/rmi/registry/Registry")) ||
+            inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("javax/naming/Context")))
                 && method.getName().equals("lookup")) {
             return true;
         }
