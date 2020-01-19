@@ -4,6 +4,8 @@ import gadgetinspector.data.ClassReference;
 import gadgetinspector.data.DataLoader;
 import gadgetinspector.data.InheritanceDeriver;
 import gadgetinspector.data.MethodReference;
+import java.util.HashSet;
+import java.util.Set;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +69,7 @@ public class MethodDiscovery {
         boolean isInterface;
         private List<ClassReference.Member> members;//类的所有字段
         private ClassReference.Handle classHandle;
+        private Set<String> annotations;
 
         private MethodDiscoveryClassVisitor() throws SQLException {
             super(Opcodes.ASM6);
@@ -81,8 +84,14 @@ public class MethodDiscovery {
             this.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
             this.members = new ArrayList<>();
             this.classHandle = new ClassReference.Handle(name);//类名
-
+            annotations = new HashSet<>();
             super.visit(version, access, name, signature, superName, interfaces);
+        }
+
+        @Override
+        public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+            annotations.add(descriptor);
+            return super.visitAnnotation(descriptor, visible);
         }
 
         public FieldVisitor visitField(int access, String name, String desc,
@@ -119,7 +128,8 @@ public class MethodDiscovery {
                     superName,
                     interfaces,
                     isInterface,
-                    members.toArray(new ClassReference.Member[members.size()]));//把所有找到的字段封装
+                    members.toArray(new ClassReference.Member[members.size()]),
+                    annotations);//把所有找到的字段封装
             //找到一个方法遍历完成后，添加类到缓存
             discoveredClasses.add(classReference);
 

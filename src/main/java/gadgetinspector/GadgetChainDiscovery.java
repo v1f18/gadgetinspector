@@ -69,6 +69,7 @@ public class GadgetChainDiscovery {
 
         Set<GadgetChainLink> exploredMethods = new HashSet<>();
         LinkedList<GadgetChain> methodsToExplore = new LinkedList<>();
+        LinkedList<GadgetChain> methodsToExploreRepeat = new LinkedList<>();
         for (Source source : DataLoader.loadData(Paths.get("sources.dat"), new Source.Factory())) {
             GadgetChainLink srcLink = new GadgetChainLink(source.getSourceMethod(), source.getTaintedArgIndex());
             if (exploredMethods.contains(srcLink)) {
@@ -101,6 +102,10 @@ public class GadgetChainDiscovery {
                     for (MethodReference.Handle methodImpl : allImpls) {
                         GadgetChainLink newLink = new GadgetChainLink(methodImpl, graphCall.getTargetArgIndex());
                         if (exploredMethods.contains(newLink)) {
+                            if (chain.links.size() < 2) {
+                                GadgetChain newChain = new GadgetChain(chain, newLink);
+                                methodsToExploreRepeat.add(newChain);
+                            }
                             continue;
                         }
 
@@ -115,6 +120,26 @@ public class GadgetChainDiscovery {
                 }
             }
         }
+
+        Set<GadgetChain> tmpDiscoveredGadgets = new HashSet<>();
+        for (GadgetChain gadgetChain : methodsToExploreRepeat) {
+            GadgetChainLink lastLink = gadgetChain.links.get(gadgetChain.links.size() - 1);
+            for (GadgetChain discoveredGadgetChain : discoveredGadgets) {
+                boolean exist = false;
+                for (GadgetChainLink gadgetChainLink : discoveredGadgetChain.links) {
+                    if (exist) {
+                        gadgetChain = new GadgetChain(gadgetChain, gadgetChainLink);
+                    }
+                    if (lastLink.equals(gadgetChainLink)) {
+                        exist = true;
+                    }
+                }
+                if (exist) {
+                    tmpDiscoveredGadgets.add(gadgetChain);
+                }
+            }
+        }
+        discoveredGadgets.addAll(tmpDiscoveredGadgets);
 
         try (OutputStream outputStream = Files.newOutputStream(Paths.get("gadget-chains.txt"));
              Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {

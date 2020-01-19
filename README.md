@@ -9,16 +9,6 @@ PS：
 
 ##### 二、加入SQLInject的检测
 
-sqlinject链检测暂时仅支持一些使用HttpServletRequest入参的方法作为source，即链的起点:
-```
-@GetMapping(value = "/select5")
-public String select5(HttpServletRequest request) {
-  String id = request.getParameter("id");
-  String sql = "select * from tb_user where id=" + id;
-  List<User> users = jdbcTemplate.query(sql, new User());
-  //...
-}
-```
 slink暂时只加入了JdbcTemplate的检测，后续慢慢加入mybatis、原生jdbc、jpa、hibernate等。
 
 使用方式，main方法启动，启动参数（新加入--boot参数，用于在spring-boot项目的jar包含有其它jar依赖的情况下）：

@@ -1,11 +1,16 @@
 package gadgetinspector.data;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 public class ClassReference {
     private final String name;
     private final String superClass;
     private final String[] interfaces;
     private final boolean isInterface;
     private final Member[] members;
+    private final Set<String> annotations;
 
     public static class Member {
         private final String name;
@@ -31,12 +36,13 @@ public class ClassReference {
         }
     }
 
-    public ClassReference(String name, String superClass, String[] interfaces, boolean isInterface, Member[] members) {
+    public ClassReference(String name, String superClass, String[] interfaces, boolean isInterface, Member[] members, Set<String> annotations) {
         this.name = name;
         this.superClass = superClass;
         this.interfaces = interfaces;
         this.isInterface = isInterface;
         this.members = members;
+        this.annotations = annotations;
     }
 
     public String getName() {
@@ -61,6 +67,10 @@ public class ClassReference {
 
     public Handle getHandle() {
         return new Handle(name);
+    }
+
+    public Set<String> getAnnotations() {
+        return annotations;
     }
 
     public static class Handle {
@@ -107,13 +117,21 @@ public class ClassReference {
                 members[i] = new Member(memberEntries[3*i], Integer.parseInt(memberEntries[3*i+1]),
                         new ClassReference.Handle(memberEntries[3*i+2]));
             }
+            String[] tmpAnnotations = fields[5].split(",");
+            Set<String> annotations = new HashSet<>();
+            for (int i = 0; i < tmpAnnotations.length; i++) {
+                if (tmpAnnotations.length > 0) {
+                    annotations.add(tmpAnnotations[i]);
+                }
+            }
 
             return new ClassReference(
                     fields[0],
                     fields[1].equals("") ? null : fields[1],
                     interfaces,
                     Boolean.parseBoolean(fields[3]),
-                    members);
+                    members,
+                    annotations);
         }
 
         @Override
@@ -136,12 +154,18 @@ public class ClassReference {
                         .append("!").append(member.getType().getName());
             }
 
+            StringBuilder annotations = new StringBuilder();
+            for (String a : obj.annotations) {
+                annotations.append(a).append(",");
+            }
+
             return new String[]{
                     obj.name,
                     obj.superClass,
                     interfaces,
                     Boolean.toString(obj.isInterface),
-                    members.length() == 0 ? null : members.substring(1)
+                    members.length() == 0 ? null : members.substring(1),
+                    annotations.length() > 0 ? annotations.substring(0, annotations.length() - 1) : ""
             };
         }
     }

@@ -17,6 +17,7 @@ public class SQLInjectSourceDiscovery extends SourceDiscovery {
       InheritanceMap inheritanceMap, Map<MethodReference.Handle, Set<GraphCall>> graphCallMap) {
 
     for (MethodReference.Handle method : methodMap.keySet()) {
+      ClassReference classReference = classMap.get(method.getClassReference());
       Set<GraphCall> graphCalls = graphCallMap.get(method);
       if (graphCalls == null) {
         continue;
@@ -29,10 +30,16 @@ public class SQLInjectSourceDiscovery extends SourceDiscovery {
             || graphCall.getTargetMethod().getName().equals("getParameterValues")
             || graphCall.getTargetMethod().getName().equals("getParameterMap"))
             && (inheritanceMap.isSubclassOf(graphCall.getTargetMethod().getClassReference(),
-            new ClassReference.Handle("javax/servlet/ServletRequest")) || graphCall
-            .getTargetMethod().getClassReference().getName().equals("javax/servlet/http/HttpServletRequest"))
+            new ClassReference.Handle("javax/servlet/ServletRequest")))
         ) {
           addDiscoveredSource(new Source(method, graphCall.getCallerArgIndex()));
+          continue;
+        }
+        if (classReference != null && (classReference.getAnnotations()
+            .contains("Lorg/springframework/web/bind/annotation/RestController;") || classReference
+            .getAnnotations().contains("Lorg/springframework/stereotype/Controller;"))) {
+          addDiscoveredSource(new Source(method, graphCall.getCallerArgIndex()));
+          continue;
         }
       }
     }
