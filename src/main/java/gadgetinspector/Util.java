@@ -1,5 +1,6 @@
 package gadgetinspector;
 
+import java.nio.file.Paths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +69,51 @@ public class Util {
         return classLoader;
     }
 
+    public static ClassLoader getJarAndLibClassLoader(Path jarPath) throws IOException {
+        //创建临时文件夹，在jvm shutdown自动删除
+        final Path tmpDir = Files.createTempDirectory("exploded-jar");
+        // Delete the temp directory at shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                deleteDirectory(tmpDir);
+            } catch (IOException e) {
+                LOGGER.error("Error cleaning up temp directory " + tmpDir.toString(), e);
+            }
+        }));
+
+        // Extract to war to the temp directory
+        try (JarInputStream jarInputStream = new JarInputStream(Files.newInputStream(jarPath))) {
+            JarEntry jarEntry;
+            while ((jarEntry = jarInputStream.getNextJarEntry()) != null) {
+                Path fullPath = tmpDir.resolve(jarEntry.getName());
+                if (!jarEntry.isDirectory()) {
+                    Path dirName = fullPath.getParent();
+                    if (dirName == null) {
+                        throw new IllegalStateException("Parent of item is outside temp directory.");
+                    }
+                    if (!Files.exists(dirName)) {
+                        Files.createDirectories(dirName);
+                    }
+                    try (OutputStream outputStream = Files.newOutputStream(fullPath)) {
+                        copy(jarInputStream, outputStream);
+                    }
+                }
+            }
+        }
+
+        final List<URL> classPathUrls = new ArrayList<>();
+        classPathUrls.add(tmpDir.resolve("BOOT-INF/classes").toUri().toURL());
+        Files.list(tmpDir.resolve("BOOT-INF/lib")).forEach(p -> {
+            try {
+                classPathUrls.add(p.toUri().toURL());
+            } catch (MalformedURLException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        URLClassLoader classLoader = new URLClassLoader(classPathUrls.toArray(new URL[classPathUrls.size()]));
+        return classLoader;
+    }
+
     public static ClassLoader getJarClassLoader(Path ... jarPaths) throws IOException {
         final List<URL> classPathUrls = new ArrayList<>(jarPaths.length);
         for (Path jarPath : jarPaths) {
@@ -108,6 +154,30 @@ public class Util {
         int n;
         while ((n = inputStream.read(buffer)) > 0) {
             outputStream.write(buffer, 0, n);
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        //创建临时文件夹，在jvm shutdown自动删除
+        final Path tmpDir = Files.createTempDirectory("exploded-war");
+        // Delete the temp directory at shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                deleteDirectory(tmpDir);
+            } catch (IOException e) {
+                LOGGER.error("Error cleaning up temp directory " + tmpDir.toString(), e);
+            }
+        }));
+        try (JarInputStream jarInputStream = new JarInputStream(Files.newInputStream(Paths.get(
+            "/Users/xuanyonghao/dev-project/learn-jdbc/build/libs/learn-jdbc-1.0-SNAPSHOT.jar")))) {
+            JarEntry jarEntry;
+            while ((jarEntry = jarInputStream.getNextJarEntry()) != null) {
+                if (!jarEntry.isDirectory()) {
+                    System.out.println(jarEntry.getName());
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

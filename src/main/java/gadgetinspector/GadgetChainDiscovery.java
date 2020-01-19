@@ -222,6 +222,10 @@ public class GadgetChainDiscovery {
      */
     // TODO: Parameterize this as a configuration option
     private boolean isSink(MethodReference.Handle method, int argIndex, InheritanceMap inheritanceMap) {
+        if (GadgetInspector.giConfig.getName().equals("sqlinject")) {
+            return isSQLInjectSink(method, argIndex, inheritanceMap);
+        }
+
         if (method.getClassReference().getName().equals("java/io/FileInputStream")
                 && method.getName().equals("<init>")) {
             return true;
@@ -312,6 +316,14 @@ public class GadgetChainDiscovery {
             return true;
         }
 
+        return false;
+    }
+
+    private boolean isSQLInjectSink(MethodReference.Handle method, int argIndex, InheritanceMap inheritanceMap) {
+        if (inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("org/springframework/jdbc/core/StatementCallback")) &&
+            method.getName().equals("doInStatement")) {
+            return true;
+        }
         return false;
     }
 

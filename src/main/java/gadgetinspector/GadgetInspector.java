@@ -20,6 +20,8 @@ import java.util.Arrays;
 public class GadgetInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(GadgetInspector.class);
 
+    public static GIConfig giConfig;
+
     private static void printUsage() {
         System.out.println("Usage:\n  Pass either a single argument which will be interpreted as a WAR, or pass " +
                 "any number of arguments which will be intepretted as a list of JARs forming a classpath.");
@@ -38,6 +40,7 @@ public class GadgetInspector {
         boolean resume = false;
         //fuzz类型，默认java原生序列化
         GIConfig config = ConfigRepository.getConfig("jserial");
+        boolean boot = false;
 
         int argIndex = 0;
         while (argIndex < args.length) {
@@ -54,6 +57,9 @@ public class GadgetInspector {
                 if (config == null) {
                     throw new IllegalArgumentException("Invalid config name: " + args[argIndex]);
                 }
+                giConfig = config;
+            } else if (arg.equals("--boot")) {
+                boot = true;
             } else {
                 throw new IllegalArgumentException("Unexpected argument: " + arg);
             }
@@ -69,6 +75,11 @@ public class GadgetInspector {
             LOGGER.info("Using WAR classpath: " + path);
             //实现为URLClassLoader，加载war包下的WEB-INF/lib和WEB-INF/classes
             classLoader = Util.getWarClassLoader(path);
+        } else if (args.length == argIndex+1 && args[argIndex].toLowerCase().endsWith(".jar") && boot) {
+            Path path = Paths.get(args[argIndex]);
+            LOGGER.info("Using JAR classpath: " + path);
+            //实现为URLClassLoader，加载jar包下的BOOT-INF/lib和BOOT-INF/classes
+            classLoader = Util.getJarAndLibClassLoader(path);
         } else {
             //加载jar文件，java命令后部，可配置多个
             final Path[] jarPaths = new Path[args.length - argIndex];

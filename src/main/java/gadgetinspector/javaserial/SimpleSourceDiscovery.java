@@ -3,9 +3,11 @@ package gadgetinspector.javaserial;
 import gadgetinspector.SerializableDecider;
 import gadgetinspector.SourceDiscovery;
 import gadgetinspector.data.ClassReference;
+import gadgetinspector.data.GraphCall;
 import gadgetinspector.data.InheritanceMap;
 import gadgetinspector.data.MethodReference;
 import gadgetinspector.data.Source;
+import java.util.Set;
 import org.objectweb.asm.Type;
 
 import java.util.Map;
@@ -15,7 +17,7 @@ public class SimpleSourceDiscovery extends SourceDiscovery {
     @Override
     public void discover(Map<ClassReference.Handle, ClassReference> classMap,
                          Map<MethodReference.Handle, MethodReference> methodMap,
-                         InheritanceMap inheritanceMap) {
+                         InheritanceMap inheritanceMap, Map<MethodReference.Handle, Set<GraphCall>> graphCallMap) {
 
         final SerializableDecider serializableDecider = new SimpleSerializableDecider(inheritanceMap);
 

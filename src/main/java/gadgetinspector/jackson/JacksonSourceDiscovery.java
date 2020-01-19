@@ -2,18 +2,20 @@ package gadgetinspector.jackson;
 
 import gadgetinspector.SourceDiscovery;
 import gadgetinspector.data.ClassReference;
+import gadgetinspector.data.GraphCall;
 import gadgetinspector.data.InheritanceMap;
 import gadgetinspector.data.MethodReference;
 import gadgetinspector.data.Source;
 
 import java.util.Map;
+import java.util.Set;
 
 public class JacksonSourceDiscovery extends SourceDiscovery {
 
     @Override
     public void discover(Map<ClassReference.Handle, ClassReference> classMap,
                          Map<MethodReference.Handle, MethodReference> methodMap,
-                         InheritanceMap inheritanceMap) {
+                         InheritanceMap inheritanceMap, Map<MethodReference.Handle, Set<GraphCall>> graphCallMap) {
 
         final JacksonSerializableDecider serializableDecider = new JacksonSerializableDecider(methodMap);
 
