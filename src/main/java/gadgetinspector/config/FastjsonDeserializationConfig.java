@@ -28,7 +28,7 @@ public class FastjsonDeserializationConfig implements GIConfig {
     public ImplementationFinder getImplementationFinder(Map<MethodReference.Handle, MethodReference> methodMap,
                                                         Map<MethodReference.Handle, Set<MethodReference.Handle>> methodImplMap,
                                                         InheritanceMap inheritanceMap) {
-        return new FastjsonImplementationFinder(getSerializableDecider(methodMap, inheritanceMap));
+        return new FastjsonImplementationFinder(getSerializableDecider(methodMap, inheritanceMap), methodImplMap);
     }
 
     @Override
