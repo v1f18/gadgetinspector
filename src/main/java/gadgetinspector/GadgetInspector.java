@@ -20,8 +20,6 @@ import java.util.Arrays;
 public class GadgetInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(GadgetInspector.class);
 
-    public static GIConfig giConfig;
-
     private static void printUsage() {
         System.out.println("Usage:\n  Pass either a single argument which will be interpreted as a WAR, or pass " +
                 "any number of arguments which will be intepretted as a list of JARs forming a classpath.");
@@ -37,10 +35,12 @@ public class GadgetInspector {
         //配置log4j用于输出日志
         configureLogging();
 
+        //是否不删除所有的dat文件
         boolean resume = false;
+        //是否Spring-Boot jar项目
+        boolean boot = false;
         //fuzz类型，默认java原生序列化
         GIConfig config = ConfigRepository.getConfig("jserial");
-        boolean boot = false;
 
         int argIndex = 0;
         while (argIndex < args.length) {
@@ -57,9 +57,13 @@ public class GadgetInspector {
                 if (config == null) {
                     throw new IllegalArgumentException("Invalid config name: " + args[argIndex]);
                 }
-                giConfig = config;
+                ConfigHelper.giConfig = config;
             } else if (arg.equals("--boot")) {
+                //指定为Spring-Boot jar项目
                 boot = true;
+            } else if (arg.equals("--mybatis.xml")) {
+                //mybatis mapper xml目录位置
+                ConfigHelper.mybatisMapperXMLPath = args[++argIndex];
             } else {
                 throw new IllegalArgumentException("Unexpected argument: " + arg);
             }
@@ -122,6 +126,12 @@ public class GadgetInspector {
             methodDiscovery.discover(classResourceEnumerator);
             //保存了类信息、方法信息、继承实现信息
             methodDiscovery.save();
+        }
+
+        if (config.getSourceDiscovery() != null) {
+            SlinkDiscovery slinkDiscovery = config.getSlinkDiscovery();
+            slinkDiscovery.discover();
+            slinkDiscovery.save();
         }
 
         if (!Files.exists(Paths.get("passthrough.dat"))) {

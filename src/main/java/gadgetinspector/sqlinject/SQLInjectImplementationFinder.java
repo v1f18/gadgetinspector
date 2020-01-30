@@ -1,4 +1,4 @@
-package gadgetinspector.sqlinject.fastjson;
+package gadgetinspector.sqlinject;
 
 import gadgetinspector.ImplementationFinder;
 import gadgetinspector.SerializableDecider;

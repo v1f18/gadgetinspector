@@ -2,11 +2,13 @@ package gadgetinspector;
 
 import gadgetinspector.config.GIConfig;
 import gadgetinspector.config.JavaDeserializationConfig;
-import gadgetinspector.data.*;
-import java.rmi.registry.Registry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import gadgetinspector.data.ClassReference;
+import gadgetinspector.data.DataLoader;
+import gadgetinspector.data.GraphCall;
+import gadgetinspector.data.InheritanceDeriver;
+import gadgetinspector.data.InheritanceMap;
+import gadgetinspector.data.MethodReference;
+import gadgetinspector.data.Source;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -14,7 +16,16 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GadgetChainDiscovery {
 
@@ -121,6 +132,7 @@ public class GadgetChainDiscovery {
             }
         }
 
+        //链聚合优化
         Set<GadgetChain> tmpDiscoveredGadgets = new HashSet<>();
         for (GadgetChain gadgetChain : methodsToExploreRepeat) {
             GadgetChainLink lastLink = gadgetChain.links.get(gadgetChain.links.size() - 1);
@@ -247,7 +259,7 @@ public class GadgetChainDiscovery {
      */
     // TODO: Parameterize this as a configuration option
     private boolean isSink(MethodReference.Handle method, int argIndex, InheritanceMap inheritanceMap) {
-        if (GadgetInspector.giConfig.getName().equals("sqlinject")) {
+        if (config.getName().equals("sqlinject")) {
             return isSQLInjectSink(method, argIndex, inheritanceMap);
         }
 
@@ -345,6 +357,10 @@ public class GadgetChainDiscovery {
     }
 
     private boolean isSQLInjectSink(MethodReference.Handle method, int argIndex, InheritanceMap inheritanceMap) {
+        Map<ClassReference.Handle, Set<MethodReference>> slinksMap = DataLoader.loadSlinks();
+        if (slinksMap.containsKey(method.getClassReference()) && slinksMap.get(method.getClassReference()).stream().filter(methodReference -> methodReference.equals(method)).count() > 0) {
+            return true;
+        }
         if (inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("org/springframework/jdbc/core/StatementCallback")) &&
             method.getName().equals("doInStatement")) {
             return true;

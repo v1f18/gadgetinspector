@@ -2,6 +2,7 @@ package gadgetinspector.config;
 
 import gadgetinspector.ImplementationFinder;
 import gadgetinspector.SerializableDecider;
+import gadgetinspector.SlinkDiscovery;
 import gadgetinspector.SourceDiscovery;
 import gadgetinspector.data.InheritanceMap;
 import gadgetinspector.data.MethodReference;
@@ -34,5 +35,10 @@ public class JacksonDeserializationConfig implements GIConfig {
     @Override
     public SourceDiscovery getSourceDiscovery() {
         return new JacksonSourceDiscovery();
+    }
+
+    @Override
+    public SlinkDiscovery getSlinkDiscovery() {
+        return null;
     }
 }

@@ -74,4 +74,21 @@ public class DataLoader {
             throw new RuntimeException(e);
         }
     }
+
+    /**
+     * 从slinks.dat加载特殊的slink信息
+     *
+     * @return
+     */
+    public static Map<ClassReference.Handle, Set<MethodReference>> loadSlinks() {
+        try {
+            Map<ClassReference.Handle, Set<MethodReference>> methodMap = new HashMap<>();
+            for (SlinkReference slinkReference : loadData(Paths.get("slinks.dat"), new SlinkFactory())) {
+                methodMap.put(slinkReference.getClassReference(), slinkReference.getMethodReferences());
+            }
+            return methodMap;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

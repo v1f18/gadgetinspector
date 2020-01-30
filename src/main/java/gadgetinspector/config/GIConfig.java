@@ -2,6 +2,7 @@ package gadgetinspector.config;
 
 import gadgetinspector.ImplementationFinder;
 import gadgetinspector.SerializableDecider;
+import gadgetinspector.SlinkDiscovery;
 import gadgetinspector.SourceDiscovery;
 import gadgetinspector.data.InheritanceMap;
 import gadgetinspector.data.MethodReference;
@@ -17,5 +18,5 @@ public interface GIConfig {
                                                  Map<MethodReference.Handle, Set<MethodReference.Handle>> methodImplMap,
                                                  InheritanceMap inheritanceMap);
     SourceDiscovery getSourceDiscovery();
-
+    SlinkDiscovery getSlinkDiscovery();
 }
