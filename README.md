@@ -32,6 +32,7 @@ slink暂时只加入了JdbcTemplate的检测，后续慢慢加入mybatis、原�
 3. --NoTaintTrack：不使用污点分析，将会把所有链都搜索出来，好处是不会遗漏，坏处是需要大量的人工审计
 4. --mybatis.xml xxx：当挖掘sqlinject时，若工程使用了Mybatis，则可通过指定mapper xml所在目录，进行挖掘Mybatis的sql注入
 5. --resume：是否项目启动时删除所有dat数据文件，重新搜索
+6. --OpLevel 1：链聚合优化等级，1表示一层优化，默认0不优化
 
 Gadget Inspector
 ================

@@ -12,4 +12,6 @@ public class ConfigHelper {
   public static String mybatisMapperXMLPath;
 
   public static boolean taintTrack = true;
+
+  public static int opLevel = 0;
 }

@@ -71,9 +71,12 @@ public class GadgetInspector {
             } else if (arg.equals("--mybatis.xml")) {
                 //mybatis mapper xml目录位置
                 ConfigHelper.mybatisMapperXMLPath = args[++argIndex];
-            }  else if (arg.equals("--NoTaintTrack")) {
+            } else if (arg.equals("--NoTaintTrack")) {
                 //是否污点分析，若不使用污点分析，将会把所有链都搜索出来，好处是不会遗漏，坏处是需要大量的人工审计
                 ConfigHelper.taintTrack = false;
+            } else if (arg.equals("--OpLevel")) {
+                //链聚合优化等级，--OpLevel 1表示一层优化，默认0不优化
+                ConfigHelper.opLevel = Integer.parseInt(args[++argIndex]);
             } else {
                 throw new IllegalArgumentException("Unexpected argument: " + arg);
             }

@@ -115,7 +115,7 @@ public class GadgetChainDiscovery {
                     for (MethodReference.Handle methodImpl : allImpls) {
                         GadgetChainLink newLink = new GadgetChainLink(methodImpl, graphCall.getTargetArgIndex());
                         if (exploredMethods.contains(newLink)) {
-                            if (chain.links.size() < 2) {
+                            if (chain.links.size() <= ConfigHelper.opLevel) {
                                 GadgetChain newChain = new GadgetChain(chain, newLink);
                                 methodsToExploreRepeat.add(newChain);
                             }
