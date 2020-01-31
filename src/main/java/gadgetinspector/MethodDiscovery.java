@@ -57,6 +57,8 @@ public class MethodDiscovery {
                 } catch (Exception e) {
                     LOGGER.error("Exception analyzing: " + classResource.getName(), e);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }

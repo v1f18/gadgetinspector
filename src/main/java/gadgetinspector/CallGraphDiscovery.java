@@ -42,6 +42,8 @@ public class CallGraphDiscovery {
                 } catch (Exception e) {
                     LOGGER.error("Error analyzing: " + classResource.getName(), e);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }

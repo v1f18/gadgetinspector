@@ -2,6 +2,13 @@ package gadgetinspector;
 
 import gadgetinspector.config.ConfigRepository;
 import gadgetinspector.config.GIConfig;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.PatternLayout;
@@ -89,17 +96,40 @@ public class GadgetInspector {
             classLoader = Util.getJarAndLibClassLoader(path);
         } else {
             //加载jar文件，java命令后部，可配置多个
-            final Path[] jarPaths = new Path[args.length - argIndex];
+            List<Path> pathList = new ArrayList<>();
             for (int i = 0; i < args.length - argIndex; i++) {
-                Path path = Paths.get(args[argIndex + i]).toAbsolutePath();
+                String pathStr = args[argIndex + i];
+                if (!pathStr.endsWith(".jar")) {
+                    //todo 主要用于大批量的挖掘链
+                    //非.jar结尾，即目录，需要遍历目录找出所有jar文件
+                    File file = Paths.get(pathStr).toFile();
+                    if (file == null || !file.exists())
+                        continue;
+                    Files.walkFileTree(file.toPath(), new SimpleFileVisitor<Path>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                            if (file.getFileName().toString().endsWith(".jar")) {
+                                File readFile = file.toFile();
+                                Path path = Paths.get(readFile.getAbsolutePath());
+                                if (Files.exists(path)) {
+                                    pathList.add(path);
+                                }
+                            }
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+
+                    continue;
+                }
+                Path path = Paths.get(pathStr).toAbsolutePath();
                 if (!Files.exists(path)) {
                     throw new IllegalArgumentException("Invalid jar path: " + path);
                 }
-                jarPaths[i] = path;
+                pathList.add(path);
             }
-            LOGGER.info("Using classpath: " + Arrays.toString(jarPaths));
+            LOGGER.info("Using classpath: " + Arrays.toString(pathList.toArray()));
             //实现为URLClassLoader，加载所有指定的jar
-            classLoader = Util.getJarClassLoader(jarPaths);
+            classLoader = Util.getJarClassLoader(pathList.toArray(new Path[0]));
         }
         //类枚举加载器，具有两个方法
         //getRuntimeClasses获取rt.jar的所有class
@@ -131,7 +161,7 @@ public class GadgetInspector {
             methodDiscovery.save();
         }
 
-        if (!Files.exists(Paths.get("slinks.dat")) && config.getSourceDiscovery() != null) {
+        if (!Files.exists(Paths.get("slinks.dat")) && config.getSlinkDiscovery() != null) {
             LOGGER.info("Running slink discovery...");
             SlinkDiscovery slinkDiscovery = config.getSlinkDiscovery();
             slinkDiscovery.discover();
