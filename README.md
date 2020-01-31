@@ -15,7 +15,23 @@ slink暂时只加入了JdbcTemplate的检测，后续慢慢加入mybatis、原�
 ```
 --config sqlinject --boot /xxxxx/xxxx/jdbc-1.0-SNAPSHOT.jar
 ```
- 
+
+#### 三、不使用污点分析（挖掘更全面的链）
+
+最新加入--NoTaintTrack参数，指定不使用污点分析，将会把所有链都搜索出来，好处是不会遗漏，坏处是需要大量的人工审计
+
+使用方式，main方法启动，启动参数：
+```
+--config fastjson --boot --NoTaintTrack /xxxxx/xxxxx/xxxxx/xxxxx.jar
+```
+注意：Fastjson的非污点分析搜索，暂时只挖掘slink为jndi lookup的链
+
+#### 参数描述
+1. --config xxx：挖掘什么样的gadget chains（jackson、fastjson、sqlinject、jserial...）
+2. --boot：指定该jar为SpringBoot项目jar包
+3. --NoTaintTrack：不使用污点分析，将会把所有链都搜索出来，好处是不会遗漏，坏处是需要大量的人工审计
+4. --mybatis.xml xxx：当挖掘sqlinject时，若工程使用了Mybatis，则可通过指定mapper xml所在目录，进行挖掘Mybatis的sql注入
+5. --resume：是否项目启动时删除所有dat数据文件，重新搜索
 
 Gadget Inspector
 ================

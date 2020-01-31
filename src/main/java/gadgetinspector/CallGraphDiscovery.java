@@ -3,6 +3,7 @@ package gadgetinspector;
 import gadgetinspector.config.GIConfig;
 import gadgetinspector.config.JavaDeserializationConfig;
 import gadgetinspector.data.*;
+import java.util.Collections;
 import org.objectweb.asm.*;
 import org.objectweb.asm.commons.JSRInlinerAdapter;
 import org.slf4j.Logger;
@@ -28,7 +29,7 @@ public class CallGraphDiscovery {
         //加载所有父子类、超类、实现类关系
         InheritanceMap inheritanceMap = InheritanceMap.load();
         //加载所有方法参数和返回值的污染关联
-        Map<MethodReference.Handle, Set<Integer>> passthroughDataflow = PassthroughDiscovery.load();
+        Map<MethodReference.Handle, Set<Integer>> passthroughDataflow = ConfigHelper.taintTrack ? PassthroughDiscovery.load() : Collections.EMPTY_MAP;
 
         SerializableDecider serializableDecider = config.getSerializableDecider(methodMap, inheritanceMap);
 
@@ -224,6 +225,16 @@ public class CallGraphDiscovery {
                 case Opcodes.INVOKEVIRTUAL:
                 case Opcodes.INVOKESPECIAL:
                 case Opcodes.INVOKEINTERFACE:
+                    if (!ConfigHelper.taintTrack) {
+                        //不进行污点分析，全部调用关系都记录
+                        discoveredCalls.add(new GraphCall(
+                            new MethodReference.Handle(new ClassReference.Handle(this.owner), this.name, this.desc),
+                            new MethodReference.Handle(new ClassReference.Handle(owner), name, desc),
+                            0,
+                            "",
+                            0));
+                        break;
+                    }
                     int stackIndex = 0;
                     for (int i = 0; i < argTypes.length; i++) {
                         //最右边的参数，就是最后入栈，即在栈顶

@@ -88,7 +88,8 @@ public class DataLoader {
             }
             return methodMap;
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
+        return Collections.EMPTY_MAP;
     }
 }

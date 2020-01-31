@@ -64,6 +64,9 @@ public class GadgetInspector {
             } else if (arg.equals("--mybatis.xml")) {
                 //mybatis mapper xml目录位置
                 ConfigHelper.mybatisMapperXMLPath = args[++argIndex];
+            }  else if (arg.equals("--NoTaintTrack")) {
+                //是否污点分析，若不使用污点分析，将会把所有链都搜索出来，好处是不会遗漏，坏处是需要大量的人工审计
+                ConfigHelper.taintTrack = false;
             } else {
                 throw new IllegalArgumentException("Unexpected argument: " + arg);
             }
@@ -108,7 +111,7 @@ public class GadgetInspector {
             // Delete all existing dat files
             LOGGER.info("Deleting stale data...");
             for (String datFile : Arrays.asList("classes.dat", "methods.dat", "inheritanceMap.dat",
-                    "passthrough.dat", "callgraph.dat", "sources.dat", "methodimpl.dat")) {
+                    "passthrough.dat", "callgraph.dat", "sources.dat", "methodimpl.dat", "slinks.dat")) {
                 final Path path = Paths.get(datFile);
                 if (Files.exists(path)) {
                     Files.delete(path);
@@ -128,13 +131,14 @@ public class GadgetInspector {
             methodDiscovery.save();
         }
 
-        if (config.getSourceDiscovery() != null) {
+        if (!Files.exists(Paths.get("slinks.dat")) && config.getSourceDiscovery() != null) {
+            LOGGER.info("Running slink discovery...");
             SlinkDiscovery slinkDiscovery = config.getSlinkDiscovery();
             slinkDiscovery.discover();
             slinkDiscovery.save();
         }
 
-        if (!Files.exists(Paths.get("passthrough.dat"))) {
+        if (!Files.exists(Paths.get("passthrough.dat")) && ConfigHelper.taintTrack) {
             LOGGER.info("Analyzing methods for passthrough dataflow...");
             PassthroughDiscovery passthroughDiscovery = new PassthroughDiscovery();
             //记录参数在方法调用链中的流动关联（如：A、B、C、D四个方法，调用链为A->B B->C C->D，其中参数随着调用关系从A流向B，在B调用C过程中作为入参并随着方法结束返回，最后流向D）

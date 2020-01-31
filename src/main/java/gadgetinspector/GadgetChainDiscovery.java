@@ -8,6 +8,7 @@ import gadgetinspector.data.GraphCall;
 import gadgetinspector.data.InheritanceDeriver;
 import gadgetinspector.data.InheritanceMap;
 import gadgetinspector.data.MethodReference;
+import gadgetinspector.data.MethodReference.Handle;
 import gadgetinspector.data.Source;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -104,7 +105,8 @@ public class GadgetChainDiscovery {
             Set<GraphCall> methodCalls = graphCallMap.get(lastLink.method);
             if (methodCalls != null) {
                 for (GraphCall graphCall : methodCalls) {
-                    if (graphCall.getCallerArgIndex() != lastLink.taintedArgIndex) {
+                    //使用污点分析才会进行数据流判断
+                    if (graphCall.getCallerArgIndex() != lastLink.taintedArgIndex && ConfigHelper.taintTrack) {
                         continue;
                     }
 
@@ -263,6 +265,11 @@ public class GadgetChainDiscovery {
             return isSQLInjectSink(method, argIndex, inheritanceMap);
         }
 
+        if (config.getName().equals("fastjson") && !ConfigHelper.taintTrack) {
+            //不使用污点分析时，Fastjson只暂时挖掘jndi attack，因为随着slink点的增加，会形成路径爆炸
+            return isFastjsonSink(method, argIndex, inheritanceMap);
+        }
+
         if (method.getClassReference().getName().equals("java/io/FileInputStream")
                 && method.getName().equals("<init>")) {
             return true;
@@ -356,9 +363,23 @@ public class GadgetChainDiscovery {
         return false;
     }
 
+    private boolean isFastjsonSink(Handle method, int argIndex, InheritanceMap inheritanceMap) {
+        if ((inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("java/rmi/registry/Registry")) ||
+            inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("javax/naming/Context")))
+            && method.getName().equals("lookup")) {
+            return true;
+        }
+        return false;
+    }
+
+    private Map<ClassReference.Handle, Set<MethodReference>> slinksMapCache = null;
+
     private boolean isSQLInjectSink(MethodReference.Handle method, int argIndex, InheritanceMap inheritanceMap) {
-        Map<ClassReference.Handle, Set<MethodReference>> slinksMap = DataLoader.loadSlinks();
-        if (slinksMap.containsKey(method.getClassReference()) && slinksMap.get(method.getClassReference()).stream().filter(methodReference -> methodReference.equals(method)).count() > 0) {
+        if (slinksMapCache == null) {
+            Map<ClassReference.Handle, Set<MethodReference>> slinksMap = DataLoader.loadSlinks();
+            slinksMapCache = slinksMap;
+        }
+        if (slinksMapCache.containsKey(method.getClassReference()) && slinksMapCache.get(method.getClassReference()).stream().filter(methodReference -> methodReference.equals(method)).count() > 0) {
             return true;
         }
         if (inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("org/springframework/jdbc/core/StatementCallback")) &&
