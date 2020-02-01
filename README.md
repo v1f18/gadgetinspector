@@ -33,6 +33,7 @@ slink暂时只加入了JdbcTemplate的检测，后续慢慢加入mybatis、原�
 4. --mybatis.xml xxx：当挖掘sqlinject时，若工程使用了Mybatis，则可通过指定mapper xml所在目录，进行挖掘Mybatis的sql注入
 5. --resume：是否项目启动时删除所有dat数据文件，重新搜索
 6. --OpLevel 1：链聚合优化等级，1表示一层优化，默认0不优化
+7. --history：启用历史扫描jar包记录，方便大规模扫描时不重复扫描旧jar包，好处时减少工作时间，坏处是遇到依赖组合的gadget可能扫不出来
 
 Gadget Inspector
 ================
