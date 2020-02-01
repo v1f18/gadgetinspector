@@ -3,22 +3,29 @@ package gadgetinspector;
 import gadgetinspector.config.ConfigRepository;
 import gadgetinspector.config.GIConfig;
 import java.io.File;
-import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Scanner;
+import java.util.Set;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.PatternLayout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
 
 /**
  * Main entry point for running an end-to-end analysis. Deletes all data files before starting and writes discovered
@@ -77,6 +84,9 @@ public class GadgetInspector {
             } else if (arg.equals("--OpLevel")) {
                 //链聚合优化等级，--OpLevel 1表示一层优化，默认0不优化
                 ConfigHelper.opLevel = Integer.parseInt(args[++argIndex]);
+            } else if (arg.equals("--history")) {
+                //启用历史扫描jar包记录，方便大规模扫描时不重复扫描旧jar包，好处时减少工作时间，坏处是遇到依赖组合的gadget可能扫不出来
+                ConfigHelper.history = true;
             } else {
                 throw new IllegalArgumentException("Unexpected argument: " + arg);
             }
@@ -100,6 +110,19 @@ public class GadgetInspector {
         } else {
             //加载jar文件，java命令后部，可配置多个
             List<Path> pathList = new ArrayList<>();
+            Set<String> scanJarHistory = new HashSet<>();
+            if (ConfigHelper.history && Files.exists(Paths.get("scan-history.dat"))) {
+                try (InputStream inputStream = Files.newInputStream(Paths.get("scan-history.dat"));
+                    Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8.name())) {
+                    while (scanner.hasNext()) {
+                        String jar = scanner.nextLine();
+                        if (jar.length() > 0) {
+                            scanJarHistory.add(jar.trim());
+                        }
+                    }
+                }
+            }
+            Set<String> newScanJarHistoryAppend = new HashSet<>();
             for (int i = 0; i < args.length - argIndex; i++) {
                 String pathStr = args[argIndex + i];
                 if (!pathStr.endsWith(".jar")) {
@@ -115,7 +138,15 @@ public class GadgetInspector {
                                 File readFile = file.toFile();
                                 Path path = Paths.get(readFile.getAbsolutePath());
                                 if (Files.exists(path)) {
-                                    pathList.add(path);
+                                    if (ConfigHelper.history) {
+                                        if (!scanJarHistory.contains(path.getFileName().toString())) {
+                                            pathList.add(path);
+                                            newScanJarHistoryAppend
+                                                .add(path.getFileName().toString());
+                                        }
+                                    } else {
+                                        pathList.add(path);
+                                    }
                                 }
                             }
                             return FileVisitResult.CONTINUE;
@@ -129,6 +160,17 @@ public class GadgetInspector {
                     throw new IllegalArgumentException("Invalid jar path: " + path);
                 }
                 pathList.add(path);
+            }
+            if (newScanJarHistoryAppend.size() > 0) {
+                try (OutputStream outputStream = Files.newOutputStream(Paths.get("scan-history.dat"),
+                    StandardOpenOption.APPEND);
+                    Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
+                    for (String jar : newScanJarHistoryAppend) {
+                        writer.write(jar);
+                        writer.write("\n");
+                    }
+                    writer.flush();
+                }
             }
             LOGGER.info("Using classpath: " + Arrays.toString(pathList.toArray()));
             //实现为URLClassLoader，加载所有指定的jar

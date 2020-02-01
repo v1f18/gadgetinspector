@@ -17,8 +17,10 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -115,6 +117,8 @@ public class GadgetChainDiscovery {
                     for (MethodReference.Handle methodImpl : allImpls) {
                         GadgetChainLink newLink = new GadgetChainLink(methodImpl, graphCall.getTargetArgIndex());
                         if (exploredMethods.contains(newLink)) {
+                        //下面的chain.links.contains(newLink)能做到聚合分叉的链非常全面，但是会造成路径爆炸
+//                        if (chain.links.contains(newLink)) {
                             if (chain.links.size() <= ConfigHelper.opLevel) {
                                 GadgetChain newChain = new GadgetChain(chain, newLink);
                                 methodsToExploreRepeat.add(newChain);
@@ -155,7 +159,9 @@ public class GadgetChainDiscovery {
         }
         discoveredGadgets.addAll(tmpDiscoveredGadgets);
 
-        try (OutputStream outputStream = Files.newOutputStream(Paths.get("gadget-chains.txt"));
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd-hh-mm");
+        try (OutputStream outputStream = Files.newOutputStream(Paths.get("gadget-chains-" + simpleDateFormat.format(new Date())
+            + ".txt"));
              Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
             for (GadgetChain chain : discoveredGadgets) {
                 printGadgetChain(writer, chain);
