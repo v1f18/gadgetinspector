@@ -8,21 +8,22 @@ import gadgetinspector.data.ClassReference;
 import gadgetinspector.data.InheritanceMap;
 import gadgetinspector.data.MethodReference;
 import gadgetinspector.data.MethodReference.Handle;
-import gadgetinspector.javaserial.SimpleImplementationFinder;
-import gadgetinspector.javaserial.SimpleSourceDiscovery;
-import gadgetinspector.xstream.XstreamSerializableDecider;
-
+import gadgetinspector.hessian.HessianImplementationFinder;
+import gadgetinspector.hessian.HessianSerializableDecider;
+import gadgetinspector.hessian.HessianSourceDiscovery;
 import java.util.Map;
 import java.util.Set;
 
-public class XstreamDeserializationConfig implements GIConfig {
+public class HessianDeserializationConfig implements GIConfig {
+
     @Override
     public String getName() {
-        return "xstream";
+        return "hessian";
     }
 
+    @Override
     public SerializableDecider getSerializableDecider(Map<MethodReference.Handle, MethodReference> methodMap, InheritanceMap inheritanceMap) {
-        return new XstreamSerializableDecider();
+        return new HessianSerializableDecider(inheritanceMap);
     }
 
     @Override
@@ -31,17 +32,16 @@ public class XstreamDeserializationConfig implements GIConfig {
         Map<Handle, Set<Handle>> methodImplMap,
         InheritanceMap inheritanceMap,
         Map<ClassReference.Handle, Set<Handle>> methodsByClass) {
-        return new SimpleImplementationFinder(getSerializableDecider(methodMap, inheritanceMap), methodImplMap);
+        return new HessianImplementationFinder(getSerializableDecider(methodMap, inheritanceMap), methodImplMap);
     }
 
     @Override
     public SourceDiscovery getSourceDiscovery() {
-        return new SimpleSourceDiscovery();
+        return new HessianSourceDiscovery();
     }
 
     @Override
     public SlinkDiscovery getSlinkDiscovery() {
         return null;
     }
-
 }

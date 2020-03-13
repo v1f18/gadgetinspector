@@ -1,11 +1,16 @@
 package gadgetinspector.fastjson;
 
+import gadgetinspector.ConfigHelper;
 import gadgetinspector.SourceDiscovery;
 import gadgetinspector.data.ClassReference;
 import gadgetinspector.data.GraphCall;
 import gadgetinspector.data.InheritanceMap;
 import gadgetinspector.data.MethodReference;
 import gadgetinspector.data.Source;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
@@ -13,31 +18,22 @@ import java.util.Set;
 
 public class FastjsonSourceDiscovery extends SourceDiscovery {
 
-  private static final Set<String> skipList = new HashSet<>();
-  private static final Set<String> foundList = new HashSet<>();
+  public static final Set<String> skipList = new HashSet<>();
 
   static {
-    //一些在非污点模式下发现无法利用的类
-    skipList.add("");
-    skipList.add("");
-    skipList.add("");
-    skipList.add("");
-    skipList.add("");
-    skipList.add("");
-  }
-
-  static {
-    //一些已被找到的gadget
-    foundList.add("");
-    foundList.add("");
-    foundList.add("");
-    foundList.add("");
-    foundList.add("");
-    foundList.add("");
-  }
-
-  static {
-    skipList.addAll(foundList);
+    if (!ConfigHelper.skipSourcesFile.isEmpty()) {
+      try(BufferedReader bufferedReader = Files.newBufferedReader(Paths.get(ConfigHelper.skipSourcesFile))) {
+        String line;
+        while ((line = bufferedReader.readLine()) != null) {
+          String c;
+          if (!(c = line.split("#")[0].trim()).isEmpty()) {
+            skipList.add(line.trim());
+          }
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
   }
 
   @Override
@@ -56,27 +52,27 @@ public class FastjsonSourceDiscovery extends SourceDiscovery {
         if (!checkFastjsonBlackList(method.getClassReference().getName().replace("/","."))) {
           continue;
         }
-        if (method.getName().startsWith("get") && method.getDesc().startsWith("()")) {
-          if (method.getDesc().matches("\\(L[^;]*;\\)L.+?;")) {
-            String fieldName =
-                method.getName().charAt(3) + method.getName().substring(4);
-            String desc = method.getDesc()
-                .substring(method.getDesc().indexOf(")L") + 2, method.getDesc().length() - 1);
-            MethodReference.Handle handle = new MethodReference.Handle(
-                method.getClassReference(), "set" + fieldName, desc);
-            if (!methodMap.containsKey(handle) &&
-                method.getDesc().matches("\\(L[^;]*;\\)Ljava/util/Collection;") ||
-                method.getDesc().matches("\\(L[^;]*;\\)Ljava/util/Map;") ||
-                method.getDesc().matches("\\(L[^;]*;\\)Ljava/util/concurrent/atomic/AtomicBoolean;")
-                ||
-                method.getDesc().matches("\\(L[^;]*;\\)Ljava/util/concurrent/atomic/AtomicInteger;")
-                ||
-                method.getDesc().matches("\\(L[^;]*;\\)Ljava/util/concurrent/atomic/AtomicLong;")) {
+        if (method.getClassReference().getName().startsWith("javafx"))
+          continue;
+        if (method.getClassReference().getName().startsWith("javax"))
+          continue;
+        if (method.getName().startsWith("get") && method.getName().length() > 3 && method.getDesc().startsWith("()")) {
+          if (method.getDesc().matches("\\(\\)Ljava/util/Collection;") ||
+              method.getDesc().matches("\\(\\)Ljava/util/Map;") ||
+              method.getDesc().matches("\\(\\)Ljava/util/concurrent/atomic/AtomicBoolean;") ||
+              method.getDesc().matches("\\(\\)Ljava/util/concurrent/atomic/AtomicInteger;") ||
+              method.getDesc().matches("\\(\\)Ljava/util/concurrent/atomic/AtomicInteger;") ||
+              method.getDesc().matches("\\(\\)Ljava/lang/Object;")) {
+            String setterName = "set" + method.getName().charAt(3) + method.getName().substring(4);
+            String desc = "(L" + method.getDesc().substring(method.getDesc().indexOf(")L") + 2, method.getDesc().length() - 1) + ";)V";
+            MethodReference.Handle handle = new MethodReference.Handle(method.getClassReference(), setterName, desc);
+            if (!methodMap.containsKey(handle)) {
               addDiscoveredSource(new Source(method, 0));
             }
           }
         }
-        if (method.getName().startsWith("set") && method.getDesc().matches("\\(L[^;]*;\\)V")) {
+        if (method.getName().startsWith("set") && method.getDesc().matches("\\(L[\\w/$]+?;\\)V")) {
+//        if (method.getName().startsWith("set") && (method.getDesc().contains("(Ljava/lang/String;)V"))) {
           addDiscoveredSource(new Source(method, 1));
         }
       }

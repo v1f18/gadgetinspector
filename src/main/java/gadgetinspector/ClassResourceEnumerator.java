@@ -8,6 +8,7 @@ import java.net.*;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Collection;
+import javax.crypto.Cipher;
 
 public class ClassResourceEnumerator {
     private final ClassLoader classLoader;
@@ -24,6 +25,8 @@ public class ClassResourceEnumerator {
      */
     public Collection<ClassResource> getAllClasses() throws IOException {
         Collection<ClassResource> result = new ArrayList<>(getRuntimeClasses());
+        if (ConfigHelper.onlyJDK)
+            return result;
         for (ClassPath.ClassInfo classInfo : ClassPath.from(classLoader).getAllClasses()) {
             result.add(new ClassLoaderClassResource(classLoader, classInfo.getResourceName()));
         }
@@ -45,8 +48,20 @@ public class ClassResourceEnumerator {
             for (ClassPath.ClassInfo classInfo : ClassPath.from(classLoader).getAllClasses()) {
                 result.add(new ClassLoaderClassResource(classLoader, classInfo.getResourceName()));
             }
-            return result;
         }
+
+//        URL cipherClassUrl = Cipher.class.getResource("Cipher.class");
+//        URLConnection connection2 = cipherClassUrl.openConnection();
+//        if (connection2 instanceof JarURLConnection) {
+//            URL runtimeUrl = ((JarURLConnection) connection2).getJarFileURL();
+//            URLClassLoader classLoader = new URLClassLoader(new URL[]{runtimeUrl});
+//
+//            for (ClassPath.ClassInfo classInfo : ClassPath.from(classLoader).getAllClasses()) {
+//                result.add(new ClassLoaderClassResource(classLoader, classInfo.getResourceName()));
+//            }
+//        }
+        if (!result.isEmpty())
+            return result;
 
         // Try finding all the JDK classes using the Java9+ modules method:
         try {

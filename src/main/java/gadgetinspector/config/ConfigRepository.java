@@ -10,7 +10,9 @@ public class ConfigRepository {
             new JacksonDeserializationConfig(),
             new XstreamDeserializationConfig(),
             new FastjsonDeserializationConfig(),
-            new SQLInjectDeserializationConfig()));
+            new SQLInjectDeserializationConfig(),
+            new HessianDeserializationConfig()
+    ));
 
     public static GIConfig getConfig(String name) {
         for (GIConfig config : ALL_CONFIGS) {

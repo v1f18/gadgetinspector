@@ -1,5 +1,6 @@
 package gadgetinspector.data;
 
+import gadgetinspector.data.ClassReference.Handle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,17 +67,7 @@ public class InheritanceDeriver {
             InheritanceMap inheritanceMap, Map<MethodReference.Handle, MethodReference> methodMap) {
 
         //遍历整合，得到每个类的所有方法实现，形成 类->实现的方法集 的映射
-        Map<ClassReference.Handle, Set<MethodReference.Handle>> methodsByClass = new HashMap<>();
-        for (MethodReference.Handle method : methodMap.keySet()) {
-            ClassReference.Handle classReference = method.getClassReference();
-            if (!methodsByClass.containsKey(classReference)) {
-                Set<MethodReference.Handle> methods = new HashSet<>();
-                methods.add(method);
-                methodsByClass.put(classReference, methods);
-            } else {
-                methodsByClass.get(classReference).add(method);
-            }
-        }
+        Map<Handle, Set<MethodReference.Handle>> methodsByClass = getMethodsByClass(methodMap);
 
         //遍历继承关系数据，形成 父类->子孙类集 的映射
         Map<ClassReference.Handle, Set<ClassReference.Handle>> subClassMap = new HashMap<>();
@@ -121,5 +112,21 @@ public class InheritanceDeriver {
         }
 
         return methodImplMap;
+    }
+
+    public static Map<Handle, Set<MethodReference.Handle>> getMethodsByClass(
+        Map<MethodReference.Handle, MethodReference> methodMap) {
+        Map<Handle, Set<MethodReference.Handle>> methodsByClass = new HashMap<>();
+        for (MethodReference.Handle method : methodMap.keySet()) {
+            Handle classReference = method.getClassReference();
+            if (!methodsByClass.containsKey(classReference)) {
+                Set<MethodReference.Handle> methods = new HashSet<>();
+                methods.add(method);
+                methodsByClass.put(classReference, methods);
+            } else {
+                methodsByClass.get(classReference).add(method);
+            }
+        }
+        return methodsByClass;
     }
 }

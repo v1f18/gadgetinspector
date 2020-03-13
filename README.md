@@ -24,16 +24,26 @@ slink暂时只加入了JdbcTemplate的检测，后续慢慢加入mybatis、原�
 ```
 --config fastjson --boot --NoTaintTrack /xxxxx/xxxxx/xxxxx/xxxxx.jar
 ```
-注意：Fastjson的非污点分析搜索，暂时只挖掘slink为jndi lookup的链
 
 #### 参数描述
 1. --config xxx：挖掘什么样的gadget chains（jackson、fastjson、sqlinject、jserial...）
 2. --boot：指定该jar为SpringBoot项目jar包
-3. --NoTaintTrack：不使用污点分析，将会把所有链都搜索出来，好处是不会遗漏，坏处是需要大量的人工审计
+3. --noTaintTrack：不使用污点分析，将会把所有链都搜索出来，好处是不会遗漏，坏处是需要大量的人工审计
 4. --mybatis.xml xxx：当挖掘sqlinject时，若工程使用了Mybatis，则可通过指定mapper xml所在目录，进行挖掘Mybatis的sql注入
-5. --resume：是否项目启动时删除所有dat数据文件，重新搜索
-6. --OpLevel 1：链聚合优化等级，1表示一层优化，默认0不优化
-7. --history：启用历史扫描jar包记录，方便大规模扫描时不重复扫描旧jar包，好处时减少工作时间，坏处是遇到依赖组合的gadget可能扫不出来
+5. --resume：是否项目启动时不删除所有dat数据文件
+6. --opLevel 1：链聚合优化等级，1表示一层优化，默认0不优化
+7. --history recordFileName：启用历史扫描jar包记录，方便大规模扫描时不重复扫描旧jar包，好处时减少工作时间，坏处是遇到依赖组合的gadget可能扫不出来
+8. --max 100：最多扫描100个jar包
+10. --onlyJDK：仅扫描jdk依赖（rt.jar、jce.jar）
+11. --maxChainLength 5：只输出chain长度小于等于5的chain
+12. --crawMaven /Users/threedr3am/jar/：使用内置爬虫，自动爬取maven仓库，jar存储至/Users/threedr3am/jar/，maven仓库极慢，可以挂代理
+13. --onlyCrawMaven：只启动maven爬虫
+14. --onlyCrawMavenPopular：只启动maven-popular爬虫
+15. --onlyCrawNexus：只启动nexus爬虫
+16. --craw 10：启用爬虫功能，每10分钟分析一遍，出一次报告。若配置--crawMaven，则使用内置爬虫功能，爬取maven仓库
+17. --slink JNDI：指定挖掘的slinks，可选JNDI、SSRFAndXXE、EXEC、FileIO、Reflect、BCEL（hessian专用），默认不填挖掘除专用外的所有slinks
+18. --skipSourcesFile: 
+19. --slinksFile: 
 
 Gadget Inspector
 ================

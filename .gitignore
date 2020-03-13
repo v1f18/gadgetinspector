@@ -2,5 +2,7 @@
 /.gradle/
 /.idea/
 /*.dat
-/gadget-chains.txt
-/gadget-chains-*.txt
+/*.bak
+/history
+/gadget-result
+/conf
