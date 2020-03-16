@@ -3,7 +3,6 @@ package gadgetinspector.jackson;
 import gadgetinspector.SerializableDecider;
 import gadgetinspector.data.ClassReference;
 import gadgetinspector.data.MethodReference;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,6 +28,9 @@ public class JacksonSerializableDecider implements SerializableDecider {
 
     @Override
     public Boolean apply(ClassReference.Handle handle) {
+        if (isNoGadgetClass(handle)) {
+            return false;
+        }
         Boolean cached = cache.get(handle);
         if (cached != null) {
             return cached;
@@ -47,5 +49,12 @@ public class JacksonSerializableDecider implements SerializableDecider {
 
         cache.put(handle, Boolean.FALSE);
         return Boolean.FALSE;
+    }
+
+    private boolean isNoGadgetClass(ClassReference.Handle clazz) {
+        if (JacksonSourceDiscovery.skipList.contains(clazz.getName())) {
+            return true;
+        }
+        return false;
     }
 }
