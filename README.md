@@ -24,6 +24,18 @@ slink暂时只加入了JdbcTemplate的检测，后续慢慢加入mybatis、原�
 ```
 --config fastjson --boot --NoTaintTrack /xxxxx/xxxxx/xxxxx/xxxxx.jar
 ```
+建议使用：
+```
+--config fastjson
+--noTaintTrack
+--craw 0
+--max 30
+--history scan-history-fastjson-jndi.dat
+--slink JNDI
+--skipSourcesFile /Users/threedr3am/xxx/gadgetinspector/fastjson-skip-sources.demo
+/Users/threedr3am/.m2/repository/
+```
+遍历/Users/threedr3am/.m2/repository/目录，把找到的jar包，30个一批的形式去不使用污点分析，挖掘JNDI slink的fastjson gadget
 
 #### 参数描述
 1. --config xxx：挖掘什么样的gadget chains（jackson、fastjson、sqlinject、jserial...）
@@ -42,8 +54,8 @@ slink暂时只加入了JdbcTemplate的检测，后续慢慢加入mybatis、原�
 15. --onlyCrawNexus：只启动nexus爬虫
 16. --craw 10：启用爬虫功能，每10分钟分析一遍，出一次报告。若配置--crawMaven，则使用内置爬虫功能，爬取maven仓库
 17. --slink JNDI：指定挖掘的slinks，可选JNDI、SSRFAndXXE、EXEC、FileIO、Reflect、BCEL（hessian专用），默认不填挖掘除专用外的所有slinks
-18. --skipSourcesFile: 
-19. --slinksFile: 
+18. --skipSourcesFile /xxx/xxxx/xxx.txt: 跳过哪些经常误报的class source，参考文件fastjson-skip-sources.demo
+19. --slinksFile /xxx/xxxx/xxx.txt: 自定义挖掘的slinks，使用后--slink参数忽略，参考文件fastjson-slinks.demo
 
 Gadget Inspector
 ================
