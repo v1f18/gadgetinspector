@@ -382,6 +382,9 @@ public class GadgetChainDiscovery {
     if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("Reflect")) && ReflectSlink(method, argIndex, inheritanceMap)) {
       return true;
     }
+    if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("JDBC")) && JDBCSlink(method, argIndex, inheritanceMap)) {
+      return true;
+    }
         /*
         if (method.getClassReference().getName().equals("java/lang/Class")
                 && method.getName().equals("forName")) {
@@ -398,6 +401,14 @@ public class GadgetChainDiscovery {
     return false;
   }
 
+  private boolean JDBCSlink(Handle method, int argIndex, InheritanceMap inheritanceMap) {
+    if (method.getClassReference().getName().equals("javax/sql/DataSource")
+        && method.getName().equals("getConnection")) {
+      return true;
+    }
+    return false;
+  }
+
   private boolean ReflectSlink(Handle method, int argIndex, InheritanceMap inheritanceMap) {
     if (method.getClassReference().getName().equals("java/lang/reflect/Method")
         && method.getName().equals("invoke") && argIndex == 0) {
@@ -405,9 +416,6 @@ public class GadgetChainDiscovery {
     }
     if (method.getClassReference().getName().equals("java/net/URLClassLoader")
         && method.getName().equals("newInstance")) {
-      return true;
-    }
-    if (dosSlink(method)) {
       return true;
     }
 
