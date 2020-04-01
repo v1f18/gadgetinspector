@@ -345,11 +345,11 @@ public class GadgetChainDiscovery {
       for (CustomSlink customSlink:customSlinks) {
         boolean flag = false;
         if (customSlink.getClassName() != null)
-          flag = customSlink.getClassName().equals(method.getClassReference().getName());
+          flag &= customSlink.getClassName().equals(method.getClassReference().getName());
         if (customSlink.getMethod() != null)
-          flag = customSlink.getMethod().equals(method.getName());
+          flag &= customSlink.getMethod().equals(method.getName());
         if (customSlink.getDesc() != null)
-          flag = customSlink.getDesc().equals(method.getDesc());
+          flag &= customSlink.getDesc().equals(method.getDesc());
         if (flag)
           return flag;
       }
@@ -385,19 +385,12 @@ public class GadgetChainDiscovery {
     if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("JDBC")) && JDBCSlink(method, argIndex, inheritanceMap)) {
       return true;
     }
-        /*
-        if (method.getClassReference().getName().equals("java/lang/Class")
-                && method.getName().equals("forName")) {
-            return true;
-        }
-        if (method.getClassReference().getName().equals("java/lang/Class")
-                && method.getName().equals("getMethod")) {
-            return true;
-        }
-        */
-    // If we can invoke an arbitrary method, that's probably interesting (though this doesn't assert that we
-    // can control its arguments). Conversely, if we can control the arguments to an invocation but not what
-    // method is being invoked, we don't mark that as interesting.
+    if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("EL")) && ELSlink(method, argIndex, inheritanceMap)) {
+      return true;
+    }
+    if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("SQLInject")) && isSQLInjectSink(method, argIndex, inheritanceMap)) {
+      return true;
+    }
     return false;
   }
 
@@ -454,10 +447,6 @@ public class GadgetChainDiscovery {
         || method.getName().equals("newOutputStream")
         || method.getName().equals("newBufferedReader")
         || method.getName().equals("newBufferedWriter"))) {
-      return true;
-    }
-    if (method.getClassReference().getName().equals("java/nio/file/Files")
-        && method.getName().equals("newOutputStream")) {
       return true;
     }
     if (method.getClassReference().getName().equals("java/net/URL") && method.getName()
@@ -595,18 +584,49 @@ public class GadgetChainDiscovery {
     return false;
   }
 
+  private boolean ELSlink(Handle method, int argIndex, InheritanceMap inheritanceMap) {
+    if ((inheritanceMap.isSubclassOf(method.getClassReference(),
+            new ClassReference.Handle("javax/validation/ConstraintValidatorContext")) ||
+        inheritanceMap.isSubclassOf(method.getClassReference(),
+            new ClassReference.Handle("org/hibernate/validator/internal/engine/constraintvalidation/ConstraintValidatorContextImpl"))) &&
+        argIndex == 1 &&
+        method.getName().equals("buildConstraintViolationWithTemplate")) {
+      return true;
+    }
+    if ((inheritanceMap.isSubclassOf(method.getClassReference(),
+            new ClassReference.Handle("org/springframework/expression/ExpressionParser")) ||
+        inheritanceMap.isSubclassOf(method.getClassReference(),
+            new ClassReference.Handle("org/springframework/expression/spel/standard/SpelExpressionParser"))) &&
+        argIndex == 1 &&
+        (method.getName().equals("parseExpression") || method.getName().equals("parseRaw"))) {
+      return true;
+    }
+    if ((inheritanceMap.isSubclassOf(method.getClassReference(),
+            new ClassReference.Handle("javax/el/ELProcessor")) &&
+        argIndex == 1 && method.getName().equals("eval"))
+        ||
+        inheritanceMap.isSubclassOf(method.getClassReference(),
+            new ClassReference.Handle("javax/el/ExpressionFactory")) &&
+            argIndex == 2 && method.getName().equals("createValueExpression")) {
+      return true;
+    }
+    return false;
+  }
+
   private Map<ClassReference.Handle, Set<MethodReference>> slinksMapCache = null;
 
   private boolean isSQLInjectSink(MethodReference.Handle method, int argIndex,
       InheritanceMap inheritanceMap) {
-    if (slinksMapCache == null) {
-      Map<ClassReference.Handle, Set<MethodReference>> slinksMap = DataLoader.loadSlinks();
-      slinksMapCache = slinksMap;
-    }
-    if (slinksMapCache.containsKey(method.getClassReference()) &&
-        slinksMapCache.get(method.getClassReference()).stream()
-            .filter(methodReference -> methodReference.equals(method)).count() > 0) {
-      return true;
+    if (config.getName().equals("sqlinject")) {
+      if (slinksMapCache == null) {
+        Map<ClassReference.Handle, Set<MethodReference>> slinksMap = DataLoader.loadSlinks();
+        slinksMapCache = slinksMap;
+      }
+      if (slinksMapCache.containsKey(method.getClassReference()) &&
+          slinksMapCache.get(method.getClassReference()).stream()
+              .filter(methodReference -> methodReference.equals(method)).count() > 0) {
+        return true;
+      }
     }
     if (inheritanceMap.isSubclassOf(method.getClassReference(),
         new ClassReference.Handle("org/springframework/jdbc/core/StatementCallback")) &&

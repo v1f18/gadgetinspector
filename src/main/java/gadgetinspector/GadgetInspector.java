@@ -44,6 +44,22 @@ public class GadgetInspector {
 
     }
 
+    static {
+        try {
+            if (!Files.exists(Paths.get("gadget-result"))) {
+                Files.createDirectory(Paths.get("gadget-result"));
+            }
+            if (!Files.exists(Paths.get("conf"))) {
+                Files.createDirectory(Paths.get("conf"));
+            }
+            if (!Files.exists(Paths.get("history"))) {
+                Files.createDirectory(Paths.get("history"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             printUsage();
