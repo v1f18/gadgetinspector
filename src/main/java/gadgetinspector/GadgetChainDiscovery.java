@@ -306,33 +306,6 @@ public class GadgetChainDiscovery {
     }
   }
 
-    /*
-    private Set<GadgetChain> getSources(Map<Long, String> classNameMap, Map<Long, MethodReferenceOld> methodIdMap, Map<Long, Set<Long>> inheritanceMap) {
-        Long serializableClassId = null;
-        for (Map.Entry<Long, String> entry : classNameMap.entrySet()) {
-            if (entry.getValue().equals("java/io/Serializable")) {
-                serializableClassId = entry.getKey();
-                break;
-            }
-        }
-        if (serializableClassId == null) {
-            throw new IllegalStateException("No class ID found for java.io.Serializable");
-        }
-
-        Set<GadgetChain> sources = new HashSet<>();
-        for (Map.Entry<Long, MethodReferenceOld> entry : methodIdMap.entrySet()) {
-            MethodReferenceOld method = entry.getValue();
-            if (inheritanceMap.get(method.getClassId()).contains(serializableClassId)
-                    && method.getName().equals("readObject")
-                    && method.getDesc().equals("(Ljava/io/ObjectInputStream;)V")) {
-                sources.add(new GadgetChain(Arrays.asList(new GadgetChainLink(entry.getKey(), 0))));
-            }
-        }
-
-        return sources;
-    }
-    */
-
   /**
    * Represents a collection of methods in the JDK that we consider to be "interesting". If a gadget
    * chain can successfully exercise one of these, it could represent anything as mundade as causing
@@ -370,6 +343,10 @@ public class GadgetChainDiscovery {
     if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("JNDI")) && JNDISlink(method, inheritanceMap)) {
       return true;
     }
+    if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("CLASSLOADER")) && ClassLoaderlink(method, argIndex, inheritanceMap)) {
+      return true;
+    }
+
     if ((ConfigHelper.slinks.isEmpty() || ConfigHelper.slinks.contains("SSRFAndXXE")) && SSRFAndXXESlink(method, inheritanceMap)) {
       return true;
     }
@@ -579,6 +556,17 @@ public class GadgetChainDiscovery {
         inheritanceMap.isSubclassOf(method.getClassReference(),
             new ClassReference.Handle("javax/naming/Context")))
         && method.getName().equals("lookup")) {
+      return true;
+    }
+    return false;
+  }
+
+  private boolean ClassLoaderlink(Handle method, int argIndex, InheritanceMap inheritanceMap) {
+    if (
+        inheritanceMap.isSubclassOf(method.getClassReference(), new ClassReference.Handle("java/lang/ClassLoader")) &&
+        method.getName().equals("loadClass") &&
+        argIndex == 1
+    ) {
       return true;
     }
     return false;

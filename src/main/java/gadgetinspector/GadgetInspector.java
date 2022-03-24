@@ -145,8 +145,8 @@ public class GadgetInspector {
                 // 缺少的不判断（例：java/rmi/registry/Registry lookup，不判断方法描述）
                 ConfigHelper.slinksFile = args[++argIndex];
             } else if (arg.equals("--slink")) {
-              for (int i = argIndex + 1; i < args.length - 1; i++) {
-                if (!args[i].startsWith("--")) {
+              for (int i = argIndex + 1; i < args.length; i++) {
+                if (!args[i].startsWith("--") && !args[i].startsWith("/")) {
                   ConfigHelper.slinks.add(args[++argIndex]);
                 } else {
                   break;
@@ -290,23 +290,20 @@ public class GadgetInspector {
                         Files.walkFileTree(file.toPath(), new SimpleFileVisitor<Path>() {
                             @Override
                             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                                if (file.getFileName().toString().endsWith(".jar")) {
-                                    File readFile = file.toFile();
-                                    Path path = Paths.get(readFile.getAbsolutePath());
-                                    if (Files.exists(path)) {
-                                        if (ConfigHelper.history) {
-                                            if (!scanJarHistory
-                                                .contains(path.getFileName().toString())) {
-                                                if (jarCount.incrementAndGet()
-                                                    <= ConfigHelper.maxJarCount) {
-                                                    pathList.add(path);
-                                                }
-                                            }
-                                        } else {
-                                            if (jarCount.incrementAndGet()
-                                                <= ConfigHelper.maxJarCount) {
+                                if (!file.getFileName().toString().endsWith(".jar"))
+                                    return FileVisitResult.CONTINUE;
+                                File readFile = file.toFile();
+                                Path path = Paths.get(readFile.getAbsolutePath());
+                                if (Files.exists(path)) {
+                                    if (ConfigHelper.history) {
+                                        if (!scanJarHistory.contains(path.getFileName().toString())) {
+                                            if (jarCount.incrementAndGet() <= ConfigHelper.maxJarCount) {
                                                 pathList.add(path);
                                             }
+                                        }
+                                    } else {
+                                        if (jarCount.incrementAndGet() <= ConfigHelper.maxJarCount) {
+                                            pathList.add(path);
                                         }
                                     }
                                 }

@@ -11,6 +11,9 @@ import java.util.*;
 
 public class DataLoader {
     public static <T> List<T> loadData(Path filePath, DataFactory<T> factory) throws IOException {
+        if (!filePath.toFile().exists()) {
+            return Collections.EMPTY_LIST;
+        }
         final List<String> lines = Files.readLines(filePath.toFile(), StandardCharsets.UTF_8);
         final List<T> values = new ArrayList<T>(lines.size());
         for (String line : lines) {

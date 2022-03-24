@@ -421,22 +421,22 @@ public class PassthroughDiscovery {
 
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-
             switch (opcode) {
                 case Opcodes.GETSTATIC:
                     break;
                 case Opcodes.PUTSTATIC:
+                    //静态调用没办法污点跟踪
                     break;
                 case Opcodes.GETFIELD:
                     Type type = Type.getType(desc);//获取字段类型
                     if (type.getSize() == 1) {
                         //size=1可能为引用类型
-                        Boolean isTransient = null;
+                        Boolean isTransient = name.equals("<init>");
 
                         // If a field type could not possibly be serialized, it's effectively transient
                         //判断调用的字段类型是否可序列化
                         if (!couldBeSerialized(serializableDecider, inheritanceMap, new ClassReference.Handle(type.getInternalName()))) {
-                            isTransient = Boolean.TRUE;
+                            isTransient |= Boolean.TRUE;
                         } else {
                             //若调用的字段可被序列化，则取当前类实例的所有字段，找出调用的字段，去判断是否被标识了transient
                             ClassReference clazz = classMap.get(new ClassReference.Handle(owner));
@@ -508,7 +508,7 @@ public class PassthroughDiscovery {
                     for (int i = 0; i < argTypes.length; i++) {
                         Type argType = argTypes[i];
                         if (argType.getSize() > 0) {
-                            //根据参数类型大小，从栈底获取入参，参数入栈是从右到左的
+                            //根据参数类型大小，从栈顶获取入参，参数入栈是从左到右的
                             argTaint.set(argTypes.length - 1 - i, getStackTaint(stackIndex + argType.getSize() - 1));
                         }
                         stackIndex += argType.getSize();
@@ -538,6 +538,7 @@ public class PassthroughDiscovery {
 
             super.visitMethodInsn(opcode, owner, name, desc, itf);
 
+            //只有返回值大于0，表示存在返回值，这样才能污点传播下去
             if (retSize > 0) {
                 getStackTaint(retSize-1).addAll(resultTaint);
             }

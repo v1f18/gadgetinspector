@@ -102,14 +102,21 @@ public class Util {
         }
 
         final List<URL> classPathUrls = new ArrayList<>();
-        classPathUrls.add(tmpDir.resolve("BOOT-INF/classes").toUri().toURL());
-        Files.list(tmpDir.resolve("BOOT-INF/lib")).forEach(p -> {
-            try {
-                classPathUrls.add(p.toUri().toURL());
-            } catch (MalformedURLException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        //spring-boot
+        if (Files.exists(tmpDir.resolve("BOOT-INF"))) {
+            classPathUrls.add(tmpDir.resolve("BOOT-INF/classes").toUri().toURL());
+            Files.list(tmpDir.resolve("BOOT-INF/lib")).forEach(p -> {
+                try {
+                    classPathUrls.add(p.toUri().toURL());
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+        //shadow jar
+        else {
+            classPathUrls.add(tmpDir.toUri().toURL());
+        }
         URLClassLoader classLoader = new URLClassLoader(classPathUrls.toArray(new URL[classPathUrls.size()]));
         return classLoader;
     }

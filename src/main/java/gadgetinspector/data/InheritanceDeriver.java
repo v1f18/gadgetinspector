@@ -83,6 +83,7 @@ public class InheritanceDeriver {
             }
         }
 
+        //遍历所有方法，根据父类->子孙类集合，找到所有的override的方法，记录下来（某个类的方法->所有的override方法）
         Map<MethodReference.Handle, Set<MethodReference.Handle>> methodImplMap = new HashMap<>();
         for (MethodReference method : methodMap.values()) {
             // Static methods cannot be overriden

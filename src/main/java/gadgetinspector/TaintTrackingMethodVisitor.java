@@ -130,6 +130,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
     @Override
     public void visitCode() {
         super.visitCode();
+        //刚进入方法，需要清空本地变量表和操作数栈
         savedVariableState.localVars.clear();
         savedVariableState.stackVars.clear();
 
@@ -150,19 +151,23 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
         }
         savedVariableState.stackVars.add(vars);
     }
+
     private void push(Set<T> possibleValues) {
         // Intentionally make this a reference to the same set
         savedVariableState.stackVars.add(possibleValues);
     }
+
     private Set<T> pop() {
         return savedVariableState.stackVars.remove(savedVariableState.stackVars.size()-1);
     }
+
     private Set<T> get(int stackIndex) {
         return savedVariableState.stackVars.get(savedVariableState.stackVars.size()-1-stackIndex);
     }
 
     @Override
     public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
+        //遇到if else或者类似switch的语句时，很多变量或栈数据的作用域会失效，所以需要对前面栈frame的清除，接着扩展新栈frame
         if (type != Opcodes.F_NEW) {
             throw new IllegalStateException("Compressed frame encountered; class reader should use accept() with EXPANDED_FRAMES option.");
         }
@@ -524,6 +529,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
             savedVariableState.localVars.add(new HashSet<T>());
         }
 
+        //变量操作，var为操作的本地变量索引
         Set<T> saved0;
         switch(opcode) {
             case Opcodes.ILOAD:
@@ -536,6 +542,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                 push();
                 break;
             case Opcodes.ALOAD:
+                //从本地变量表取出变量数据入操作数栈，这个变量数据可能是被污染的
                 push(savedVariableState.localVars.get(var));
                 break;
             case Opcodes.ISTORE:
@@ -550,6 +557,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                 savedVariableState.localVars.set(var, new HashSet<T>());
                 break;
             case Opcodes.ASTORE:
+                //从栈中取出数据存到本地变量表，这个数据可能是被污染的（主要还是得看调用的方法，返回值是否可被污染）
                 saved0 = pop();
                 savedVariableState.localVars.set(var, saved0);
                 break;
@@ -606,9 +614,9 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                 }
                 break;
             case Opcodes.GETFIELD:
-                pop();
+                pop();//当前对象出栈
                 for (int i = 0; i < typeSize; i++) {
-                    push();
+                    push();//获取到的field入栈
                 }
                 break;
             case Opcodes.PUTFIELD:
@@ -660,7 +668,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                         for (int j = 0; j < argType.getSize() - 1; j++) {
                             pop();
                         }
-                        argTaint.set(argTypes.length - 1 - i, pop());
+                        argTaint.set(argTypes.length - 1 - i, pop());//把操作数栈的数据pop出来存到argTaint，因为这个数据必然是从本地变量表中取出来的
                     }
                 }
 
@@ -723,7 +731,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
                 if (retSize > 0) {
                     push(resultTaint);//污染结果入栈
                     for (int i = 1; i < retSize; i++) {
-                        push();
+                        push();//污点分析的逻辑就是额外push一份数据
                     }
                 }
                 break;
@@ -923,6 +931,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
         //出栈，index=0为栈顶
         return savedVariableState.stackVars.get(savedVariableState.stackVars.size()-1-index);
     }
+
     protected void setStackTaint(int index, T ... possibleValues) {
         Set<T> values = new HashSet<T>();
         for (T value : possibleValues) {
@@ -931,6 +940,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
         //入栈，index=0为栈顶
         savedVariableState.stackVars.set(savedVariableState.stackVars.size()-1-index, values);
     }
+
     protected void setStackTaint(int index, Collection<T> possibleValues) {
         Set<T> values = new HashSet<T>();
         values.addAll(possibleValues);
@@ -940,6 +950,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
     protected Set<T> getLocalTaint(int index) {
         return savedVariableState.localVars.get(index);
     }
+
     protected void setLocalTaint(int index, T ... possibleValues) {
         Set<T> values = new HashSet<T>();
         for (T value : possibleValues) {
@@ -947,6 +958,7 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
         }
         savedVariableState.localVars.set(index, values);
     }
+
     protected void setLocalTaint(int index, Collection<T> possibleValues) {
         Set<T> values = new HashSet<T>();
         values.addAll(possibleValues);
