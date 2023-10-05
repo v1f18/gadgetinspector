@@ -56,9 +56,20 @@ public class FastjsonSourceDiscovery extends SourceDiscovery {
           continue;
         if (method.getClassReference().getName().startsWith("javax"))
           continue;
+        /**
+         * 满足:
+         * get开头
+         * 并且get后面需要东西
+         * 参数为空
+         */
         if (method.getName().startsWith("get") && method.getName().length() > 3 && method.getDesc().startsWith("()")) {
           addDiscoveredSource(new Source(method, 0));
         }
+        /**
+         * 满足
+         * 以set开头
+         * 参数为引用类型,只能有一个,并且没有返回值
+         */
         if (method.getName().startsWith("set") && method.getDesc().matches("\\(L[\\w/$]+?;\\)V")) {
 //        if (method.getName().startsWith("set") && (method.getDesc().contains("(Ljava/lang/String;)V"))) {
           addDiscoveredSource(new Source(method, 1));
@@ -68,32 +79,38 @@ public class FastjsonSourceDiscovery extends SourceDiscovery {
   }
 
   private boolean checkFastjsonBlackList(String className) {
-    final long BASIC = 0xcbf29ce484222325L;
-    final long PRIME = 0x100000001b3L;
+    try{
+      final long BASIC = 0xcbf29ce484222325L;
+      final long PRIME = 0x100000001b3L;
 
-    final long h1 = (BASIC ^ className.charAt(0)) * PRIME;
-    if (h1 == 0xaf64164c86024f1aL) { // [
-      return false;
-    }
-
-    if ((h1 ^ className.charAt(className.length() - 1)) * PRIME == 0x9198507b5af98f0L) {
-      return false;
-    }
-
-    final long h3 = (((((BASIC ^ className.charAt(0))
-        * PRIME)
-        ^ className.charAt(1))
-        * PRIME)
-        ^ className.charAt(2))
-        * PRIME;
-
-    long hash = h3;
-    for (int i = 3; i < className.length(); ++i) {
-      hash ^= className.charAt(i);
-      hash *= PRIME;
-      if (Arrays.binarySearch(denyHashCodes, hash) >= 0) {
+      final long h1 = (BASIC ^ className.charAt(0)) * PRIME;
+      if (h1 == 0xaf64164c86024f1aL) { // [
         return false;
       }
+
+      if ((h1 ^ className.charAt(className.length() - 1)) * PRIME == 0x9198507b5af98f0L) {
+        return false;
+      }
+
+      final long h3 = (((((BASIC ^ className.charAt(0))
+              * PRIME)
+              ^ className.charAt(1))
+              * PRIME)
+              ^ className.charAt(2))
+              * PRIME;
+
+      long hash = h3;
+      for (int i = 3; i < className.length(); ++i) {
+        hash ^= className.charAt(i);
+        hash *= PRIME;
+        if (Arrays.binarySearch(denyHashCodes, hash) >= 0) {
+          return false;
+        }
+      }
+      return true;
+    }
+    catch (Exception E){
+
     }
     return true;
   }

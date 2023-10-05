@@ -4,12 +4,14 @@ import gadgetinspector.config.GIConfig;
 import gadgetinspector.config.JavaDeserializationConfig;
 import gadgetinspector.data.*;
 import org.objectweb.asm.*;
+import org.objectweb.asm.commons.AnalyzerAdapter;
 import org.objectweb.asm.commons.JSRInlinerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -30,6 +32,7 @@ public class PassthroughDiscovery {
         InheritanceMap inheritanceMap = InheritanceMap.load();
 
         //搜索方法间的调用关系，缓存至methodCalls集合，返回 类名->类资源 映射集合
+        //discoverMethodCalls方法里面保存: 在每个方法中还调用了哪些方法,调用方法和被调用方法作为key,value
         Map<String, ClassResourceEnumerator.ClassResource> classResourceByName = discoverMethodCalls(classResourceEnumerator);
         //对方法调用关系进行字典排序
         List<MethodReference.Handle> sortedMethods = topologicallySortMethodCalls();
@@ -77,9 +80,9 @@ public class PassthroughDiscovery {
         Map<MethodReference.Handle, Set<MethodReference.Handle>> outgoingReferences = new HashMap<>();
         for (Map.Entry<MethodReference.Handle, Set<MethodReference.Handle>> entry : methodCalls.entrySet()) {
             MethodReference.Handle method = entry.getKey();
+            //在此处对methodCalls的数据进行封装处理,形成MethodReference.Handle(key) hashSet<MethodReference.Handle>的形式
             outgoingReferences.put(method, new HashSet<>(entry.getValue()));
         }
-
         // Topological sort methods
         LOGGER.debug("Performing topological sort...");
         Set<MethodReference.Handle> dfsStack = new HashSet<>();
@@ -111,6 +114,7 @@ public class PassthroughDiscovery {
                                                                                           InheritanceMap inheritanceMap,
                                                                                           List<MethodReference.Handle> sortedMethods,
                                                                                           SerializableDecider serializableDecider) throws IOException {
+        //key对应方法名,value对应可以被污染的参数集合
         final Map<MethodReference.Handle, Set<Integer>> passthroughDataflow = new HashMap<>();
         //遍历所有方法，然后asm观察所属类，经过前面DFS的排序，调用链最末端的方法在最前面
         for (MethodReference.Handle method : sortedMethods) {
@@ -265,6 +269,15 @@ public class PassthroughDiscovery {
         }
     }
 
+    /**
+     * outgoingReferences 对应整理的hashSet
+     * sortedMethods 排序用的List
+     * visitedNodes 暂时没懂什么意思,猜测应该是递归的时候需要一个节点(即已经做过测试了的方法)来防止死循环
+     * stack 模拟的栈
+     * node 当前测试的方法
+     *
+     */
+
     private static void dfsTsort(Map<MethodReference.Handle, Set<MethodReference.Handle>> outgoingReferences,
                                     List<MethodReference.Handle> sortedMethods, Set<MethodReference.Handle> visitedNodes,
                                     Set<MethodReference.Handle> stack, MethodReference.Handle node) {
@@ -317,6 +330,7 @@ public class PassthroughDiscovery {
         public void visit(int version, int access, String name, String signature,
                           String superName, String[] interfaces) {
             super.visit(version, access, name, signature, superName, interfaces);
+            //观察的class名
             this.name = name;
             //不是目标观察的class跳过
             if (!this.name.equals(methodToVisit.getClassReference().getName())) {
@@ -383,6 +397,7 @@ public class PassthroughDiscovery {
 
             int localIndex = 0;
             int argIndex = 0;
+            //做一个与&运算,判断这个方式是不是静态方法,因为在局部变量表中,静态方法没有this,从0开始存入参数
             if ((this.access & Opcodes.ACC_STATIC) == 0) {
                 //非静态方法，第一个局部变量应该为对象实例this
                 //添加到本地变量表集合
@@ -398,8 +413,21 @@ public class PassthroughDiscovery {
             }
         }
 
+        /**
+         *
+         *  遇到return指令的时候才会触发这个方法
+         */
         @Override
         public void visitInsn(int opcode) {
+            try{
+
+                Class<?> aClass = Class.forName("org.objectweb.asm.commons.AnalyzerAdapter");
+                Field declaredField = aClass.getDeclaredField("owner");
+                declaredField.setAccessible(true);
+                System.out.println(declaredField.get(this.mv));
+            }catch (Exception e){
+
+            }
             switch(opcode) {
                 case Opcodes.IRETURN://从当前方法返回int
                 case Opcodes.FRETURN://从当前方法返回float
@@ -479,7 +507,10 @@ public class PassthroughDiscovery {
         }
 
         @Override
-        public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+        public void visitMethodInsn(int opcode, String owner, String name,
+ String desc, boolean itf) {
+            System.out.println("Class Name:  "+owner);
+            System.out.println("Method Name:  "+name);
             //获取method参数类型
             Type[] argTypes = Type.getArgumentTypes(desc);
             if (opcode != Opcodes.INVOKESTATIC) {
@@ -524,6 +555,11 @@ public class PassthroughDiscovery {
                     }
 
                     //todo 3 前面已做逆拓扑，调用链最末端最先被visit，因此，调用到的方法必然已被visit分析过
+                    //passthroughDataflow在这里再解释以下:
+                    /**
+                     * passthroughDataflow是之前在分析方法和返回值之间的关系,这里通过get方法来判断这个方法是否在passthroughDataflow里面
+                     * 如果在里面就表示返回值和参数之间有关系
+                     */
                     Set<Integer> passthrough = passthroughDataflow.get(new MethodReference.Handle(new ClassReference.Handle(owner), name, desc));
                     if (passthrough != null) {
                         for (Integer passthroughDataflowArg : passthrough) {

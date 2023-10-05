@@ -8,6 +8,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -63,6 +65,7 @@ public class GadgetInspector {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             printUsage();
+            System.out.println("[!] 需要参数");
             System.exit(1);
         }
 
@@ -130,6 +133,8 @@ public class GadgetInspector {
             } else if (arg.equals("--onlyCrawMaven")) {
                 //只爬取maven仓库，不挖掘gadget
                 ConfigHelper.onlyCrawMaven = true;
+            } else if (arg.equals("--isSave")) {
+                ConfigHelper.isSave = true;
             } else if (arg.equals("--onlyCrawNexus")) {
                 //只爬取nexus本地仓库，不挖掘gadget
                 ConfigHelper.onlyCrawNexus = true;
@@ -175,6 +180,7 @@ public class GadgetInspector {
             AtomicBoolean haveNewJar = new AtomicBoolean(false);
             List<Path> pathList = new ArrayList<>();
             ClassLoader classLoader = initJarData(args, boot, argIndex, haveNewJar, pathList);
+//            ClassLoader classLoader = new URLClassLoader(new URL[]{});
             if (ConfigHelper.craw && !haveNewJar.getAndSet(false)) {
                 Thread.sleep(60 * 1000L);
                 continue;
@@ -336,9 +342,12 @@ public class GadgetInspector {
                 || !Files.exists(Paths.get("inheritanceMap.dat"))) {
             LOGGER.info("Running method discovery...");
             MethodDiscovery methodDiscovery = new MethodDiscovery();
+            //扫描jar包中的class,保存class文件中的信息到MethodDiscovery中
             methodDiscovery.discover(classResourceEnumerator);
             //保存了类信息、方法信息、继承实现信息
+//            if (ConfigHelper.isSave){
             methodDiscovery.save();
+//            }
         }
 
         if (!Files.exists(Paths.get("slinks.dat")) && config.getSlinkDiscovery() != null) {

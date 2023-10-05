@@ -522,6 +522,11 @@ public class TaintTrackingMethodVisitor<T> extends MethodVisitor {
         sanityCheck();
     }
 
+    /**
+     * 当参数加入局部变量表的时候,需要
+     *
+     */
+
     @Override
     public void visitVarInsn(int opcode, int var) {
         // Extend local variable state to make sure we include the variable index

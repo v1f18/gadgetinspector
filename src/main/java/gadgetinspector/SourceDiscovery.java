@@ -22,8 +22,11 @@ public abstract class SourceDiscovery {
     }
 
     public void discover() throws IOException {
+        //类
         Map<ClassReference.Handle, ClassReference> classMap = DataLoader.loadClasses();
+        //方法
         Map<MethodReference.Handle, MethodReference> methodMap = DataLoader.loadMethods();
+        //继承关系
         InheritanceMap inheritanceMap = InheritanceMap.load();
 
         Map<MethodReference.Handle, Set<GraphCall>> graphCallMap = new HashMap<>();

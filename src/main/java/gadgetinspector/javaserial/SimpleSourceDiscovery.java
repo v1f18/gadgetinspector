@@ -22,6 +22,7 @@ public class SimpleSourceDiscovery extends SourceDiscovery {
         final SerializableDecider serializableDecider = new SimpleSerializableDecider(inheritanceMap);
 
         for (MethodReference.Handle method : methodMap.keySet()) {
+            System.out.println(method);
             if (Boolean.TRUE.equals(serializableDecider.apply(method.getClassReference()))) {
                 if (method.getName().equals("finalize") && method.getDesc().equals("()V")) {
                     addDiscoveredSource(new Source(method, 0));

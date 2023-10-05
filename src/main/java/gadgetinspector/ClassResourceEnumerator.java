@@ -24,11 +24,13 @@ public class ClassResourceEnumerator {
      * @throws IOException
      */
     public Collection<ClassResource> getAllClasses() throws IOException {
-        Collection<ClassResource> result = new ArrayList<>(getRuntimeClasses());
+        Collection<ClassResource> result = new ArrayList<>();
         if (ConfigHelper.onlyJDK)
             return result;
         for (ClassPath.ClassInfo classInfo : ClassPath.from(classLoader).getAllClasses()) {
+//            if (classInfo.getPackageName().equals("com.example.gadgetinspectortest")){
             result.add(new ClassLoaderClassResource(classLoader, classInfo.getResourceName()));
+//            }
         }
         return result;
     }

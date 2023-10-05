@@ -38,4 +38,5 @@ public class ConfigHelper {
 
   public static String skipSourcesFile = "";
   public static String slinksFile = "";
+  public static Boolean isSave = false;
 }

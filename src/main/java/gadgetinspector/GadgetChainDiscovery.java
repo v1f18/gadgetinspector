@@ -76,9 +76,8 @@ public class GadgetChainDiscovery {
   public void discover(List<Path> pathList) throws Exception {
     Map<MethodReference.Handle, MethodReference> methodMap = DataLoader.loadMethods();
     InheritanceMap inheritanceMap = InheritanceMap.load();
-    Map<MethodReference.Handle, Set<MethodReference.Handle>> methodImplMap = InheritanceDeriver
-        .getAllMethodImplementations(
-            inheritanceMap, methodMap);
+
+    Map<MethodReference.Handle, Set<MethodReference.Handle>> methodImplMap = InheritanceDeriver.getAllMethodImplementations(inheritanceMap, methodMap);
     Map<ClassReference.Handle, Set<MethodReference.Handle>> methodsByClass = InheritanceDeriver.getMethodsByClass(methodMap);
 
     final ImplementationFinder implementationFinder = config.getImplementationFinder(
@@ -106,8 +105,7 @@ public class GadgetChainDiscovery {
     }
 
     Map<MethodReference.Handle, Set<GraphCall>> graphCallMap = new HashMap<>();
-    for (GraphCall graphCall : DataLoader
-        .loadData(Paths.get("callgraph.dat"), new GraphCall.Factory())) {
+    for (GraphCall graphCall : DataLoader.loadData(Paths.get("callgraph.dat"), new GraphCall.Factory())) {
       MethodReference.Handle caller = graphCall.getCallerMethod();
       if (!graphCallMap.containsKey(caller)) {
         Set<GraphCall> graphCalls = new HashSet<>();
@@ -156,8 +154,7 @@ public class GadgetChainDiscovery {
             continue;
           }
 
-          Set<MethodReference.Handle> allImpls = implementationFinder
-              .getImplementations(graphCall.getTargetMethod());
+          Set<MethodReference.Handle> allImpls = implementationFinder.getImplementations(graphCall.getTargetMethod());
 
           //todo gadgetinspector bug 没记录继承父类的方法，导致不可能找到
           if (allImpls.isEmpty()) {
